@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="tr" class="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pırtıl Geridönüşüm | En Yakın Geri Dönüşüm Noktasını Bul</title>
+  <meta name="description" content="Pırtıl Geridönüşüm: Türkiye genelinde pil, e-atık, atık yağ, tekstil, ilaç ve ambalaj geri dönüşüm noktalarını haritada bulun." />
+  <meta name="theme-color" content="#059669" />
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
+
+  <!-- ================= HARİCİ KÜTÜPHANELER (CDN) ================= -->
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Tailwind ayarları: sınıf tabanlı karanlık mod + marka renkleri
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            emerald: { 450: '#1fb985' },
+            mint: { 50: '#effdf6', 100: '#d7f9ea', 200: '#b0f1d6', 300: '#7de3bd' }
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+  <!-- Leaflet (Harita) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <!-- Yazı tipi -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* Harita yüksekliği ve özel pin görünümü */
+    #map { height: 100%; min-height: 420px; z-index: 0; }
+    .pin {
+      width: 38px; height: 38px; border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg); display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,.25); border: 2px solid #fff;
+    }
+    .pin span { transform: rotate(45deg); font-size: 18px; line-height: 1; }
+    .pin.pending { opacity: .75; border-style: dashed; }
+    .user-dot {
+      width: 18px; height: 18px; border-radius: 50%; background: #2563eb;
+      border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(37,99,235,.25);
+    }
+    /* Popup görünümü */
+    .leaflet-popup-content-wrapper { border-radius: 14px; }
+    .leaflet-popup-content { margin: 12px 14px; }
+    .dark .leaflet-popup-content-wrapper, .dark .leaflet-popup-tip { background: #1f2937; color: #f3f4f6; }
+    .dark .leaflet-tile-pane { filter: brightness(.75) contrast(1.1) saturate(.8); }
+    /* İnce kaydırma çubuğu */
+    .thin-scroll::-webkit-scrollbar { width: 6px; }
+    .thin-scroll::-webkit-scrollbar-thumb { background: #a7f3d0; border-radius: 6px; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 dark:bg-gray-950 dark:text-gray-100 font-sans antialiased transition-colors">
+
+  <!-- ================= ÜST BAŞLIK ================= -->
+  <header class="sticky top-0 z-30 bg-white/85 dark:bg-gray-900/85 backdrop-blur border-b border-gray-200 dark:border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <a href="#" class="flex items-center gap-3 min-w-0">
+        <img src="assets/logo.png" alt="Pırtıl logosu" class="w-11 h-11 rounded-xl bg-white object-contain ring-2 ring-emerald-500/40" />
+        <div class="min-w-0">
+          <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-emerald-700 dark:text-emerald-400 leading-tight">Pırtıl Geridönüşüm</h1>
+          <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">♻️ En Yakın Geri Dönüşüm Noktasını Bul</p>
+        </div>
+      </a>
+      <div class="flex items-center gap-2">
+        <button id="openSuggestBtn" class="hidden sm:inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-sm transition">
+          ➕ Yeni Nokta Bildir
+        </button>
+        <button id="themeToggle" aria-label="Tema değiştir" class="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-mint-50 dark:hover:bg-gray-800 text-lg transition">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-4">
+
+    <!-- Prototip uyarısı: noktalar örnek veridir -->
+    <div class="mb-4 flex items-start gap-2 text-xs sm:text-sm bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 rounded-xl px-3 py-2">
+      <span>⚠️</span>
+      <span><b>Prototip sürüm:</b> Haritadaki noktalar örnek veridir. Gitmeden önce noktanın varlığını belediyenizden veya ilgili kurumdan doğrulayın.</span>
+    </div>
+
+    <!-- ================= FİLTRE BUTONLARI ================= -->
+    <section class="mb-4">
+      <div id="filterBar" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+    </section>
+
+    <!-- ================= HARİTA + LİSTE ================= -->
+    <section class="grid lg:grid-cols-[1fr_380px] gap-4">
+
+      <!-- Harita -->
+      <div class="relative rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm h-[55vh] lg:h-[calc(100vh-230px)]">
+        <div id="map"></div>
+        <button id="locateBtn" class="absolute z-[400] bottom-4 right-4 bg-white dark:bg-gray-800 text-sm font-semibold px-3 py-2 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-mint-50 dark:hover:bg-gray-700 transition">
+          📍 Konumum
+        </button>
+        <div id="pickHint" class="hidden absolute z-[400] top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-lg">
+          Haritada noktanın yerine dokun
+        </div>
+      </div>
+
+      <!-- Liste -->
+      <aside class="flex flex-col rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm lg:h-[calc(100vh-230px)]">
+        <div class="p-3 border-b border-gray-100 dark:border-gray-800">
+          <input id="searchInput" type="search" placeholder="🔍 Nokta, ilçe veya şehir ara..."
+            class="w-full px-3 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 border border-transparent focus:border-emerald-500 focus:outline-none text-sm" />
+          <div class="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
+            <span id="resultCount">0 nokta</span>
+            <span id="distanceSource">Mesafe: İstanbul merkezine göre</span>
+          </div>
+        </div>
+        <ul id="pointList" class="flex-1 overflow-y-auto thin-scroll divide-y divide-gray-100 dark:divide-gray-800 max-h-[60vh] lg:max-h-none"></ul>
+      </aside>
+    </section>
+
+    <footer class="text-center text-xs text-gray-400 dark:text-gray-500 py-6">
+      Pırtıl Geridönüşüm • Sıfır Atık için ♻️ • Harita verisi © OpenStreetMap katkıcıları
+    </footer>
+  </main>
+
+  <!-- Mobil: sabit "Nokta Bildir" butonu -->
+  <button id="openSuggestBtnMobile" class="sm:hidden fixed z-30 bottom-5 left-1/2 -translate-x-1/2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-3 rounded-full shadow-xl">
+    ➕ Yeni Nokta Bildir
+  </button>
+
+  <!-- ================= YENİ NOKTA BİLDİR MODALI ================= -->
+  <div id="suggestModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="w-full sm:max-w-lg bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+        <h2 class="text-lg font-bold text-emerald-700 dark:text-emerald-400">➕ Yeni Geri Dönüşüm Noktası Bildir</h2>
+        <button id="closeSuggestBtn" class="w-9 h-9 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-xl">&times;</button>
+      </div>
+      <form id="suggestForm" class="p-5 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold mb-1">Nokta Adı *</label>
+          <input id="sName" required maxlength="80" placeholder="Örn: Market önündeki pil kutusu"
+            class="w-full px-3 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">Adres / Tarif</label>
+          <input id="sAddress" maxlength="160" placeholder="Mahalle, cadde, ilçe / şehir"
+            class="w-full px-3 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">Kabul Ettiği Atık Türleri *</label>
+          <div id="sTypes" class="grid grid-cols-2 gap-2"></div>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">Konum *</label>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="useMyLocBtn" class="flex-1 min-w-[140px] px-3 py-2 rounded-xl border border-emerald-500 text-emerald-700 dark:text-emerald-400 text-sm font-semibold hover:bg-mint-50 dark:hover:bg-gray-800">📍 Konumumu Kullan</button>
+            <button type="button" id="pickOnMapBtn" class="flex-1 min-w-[140px] px-3 py-2 rounded-xl border border-emerald-500 text-emerald-700 dark:text-emerald-400 text-sm font-semibold hover:bg-mint-50 dark:hover:bg-gray-800">🗺️ Haritadan Seç</button>
+          </div>
+          <p id="sCoords" class="text-xs text-gray-500 dark:text-gray-400 mt-2">Henüz konum seçilmedi.</p>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">Açıklama</label>
+          <textarea id="sDesc" rows="3" maxlength="300" placeholder="Açılış saatleri, kutunun yeri gibi notlar..."
+            class="w-full px-3 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"></textarea>
+        </div>
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition">Öneriyi Gönder</button>
+        <p class="text-xs text-gray-400 text-center">Önerin bu cihazda kaydedilir ve haritada "Onay Bekliyor" olarak görünür.</p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bildirim kutusu -->
+  <div id="toast" class="fixed z-[60] top-20 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold px-4 py-2.5 rounded-xl shadow-xl opacity-0 pointer-events-none transition-opacity"></div>
+
+  <script>
+    /* =====================================================================
+       1) ATIK KATEGORİLERİ
+       ===================================================================== */
+    const CATEGORIES = {
+      pil:     { label: 'Pil ve Akümülatör',        icon: '🔋', color: '#f59e0b' },
+      eatik:   { label: 'Elektronik Atık (E-Atık)', icon: '🔌', color: '#6366f1' },
+      yag:     { label: 'Bitkisel Atık Yağ',        icon: '🛢️', color: '#a16207' },
+      tekstil: { label: 'Tekstil ve Giysi',         icon: '👕', color: '#ec4899' },
+      ilac:    { label: 'Miadı Dolmuş İlaç',        icon: '💊', color: '#ef4444' },
+      ambalaj: { label: 'Plastik / Cam / Kağıt',    icon: '📦', color: '#10b981' }
+    };
+
+    /* =====================================================================
+       2) ÖRNEK (MOCK) VERİ — Prototip içindir, gerçek konum değildir
+       ===================================================================== */
+    const MOCK_POINTS = [
+      // İstanbul
+      { id: 1,  name: 'Kadıköy Atık Getirme Merkezi (Örnek)', address: 'Kadıköy, İstanbul', lat: 40.9903, lng: 29.0290, types: ['pil','eatik','yag','ambalaj'] },
+      { id: 2,  name: 'Beşiktaş Sahil Pil Kutusu (Örnek)',    address: 'Beşiktaş, İstanbul', lat: 41.0422, lng: 29.0067, types: ['pil'] },
+      { id: 3,  name: 'Üsküdar Giysi Kumbarası (Örnek)',       address: 'Üsküdar, İstanbul', lat: 41.0256, lng: 29.0151, types: ['tekstil'] },
+      { id: 4,  name: 'Şişli Eczane İlaç Toplama (Örnek)',     address: 'Şişli, İstanbul', lat: 41.0602, lng: 28.9877, types: ['ilac'] },
+      { id: 5,  name: 'Bakırköy E-Atık Noktası (Örnek)',       address: 'Bakırköy, İstanbul', lat: 40.9819, lng: 28.8772, types: ['eatik','pil'] },
+      { id: 6,  name: 'Ataşehir Mobil Atık Noktası (Örnek)',   address: 'Ataşehir, İstanbul', lat: 40.9923, lng: 29.1244, types: ['ambalaj','yag','tekstil'] },
+      { id: 7,  name: 'Fatih Ambalaj Konteyneri (Örnek)',      address: 'Fatih, İstanbul', lat: 41.0186, lng: 28.9497, types: ['ambalaj'] },
+      { id: 8,  name: 'Beylikdüzü Atık Yağ Noktası (Örnek)',   address: 'Beylikdüzü, İstanbul', lat: 40.9822, lng: 28.6400, types: ['yag'] },
+      // Ankara
+      { id: 9,  name: 'Çankaya Atık Getirme Merkezi (Örnek)',  address: 'Çankaya, Ankara', lat: 39.9179, lng: 32.8627, types: ['pil','eatik','ambalaj','yag'] },
+      { id: 10, name: 'Kızılay Eczane İlaç Kutusu (Örnek)',    address: 'Kızılay, Ankara', lat: 39.9208, lng: 32.8541, types: ['ilac'] },
+      { id: 11, name: 'Keçiören Giysi Kumbarası (Örnek)',      address: 'Keçiören, Ankara', lat: 39.9800, lng: 32.8670, types: ['tekstil'] },
+      // İzmir
+      { id: 12, name: 'Karşıyaka Sahil Atık Noktası (Örnek)',  address: 'Karşıyaka, İzmir', lat: 38.4561, lng: 27.1100, types: ['ambalaj','pil'] },
+      { id: 13, name: 'Bornova E-Atık Toplama (Örnek)',        address: 'Bornova, İzmir', lat: 38.4697, lng: 27.2210, types: ['eatik'] },
+      { id: 14, name: 'Konak Atık Yağ Noktası (Örnek)',        address: 'Konak, İzmir', lat: 38.4189, lng: 27.1287, types: ['yag','tekstil'] },
+      // Bursa
+      { id: 15, name: 'Nilüfer Atık Getirme Merkezi (Örnek)',  address: 'Nilüfer, Bursa', lat: 40.2140, lng: 28.9520, types: ['pil','eatik','yag','ambalaj','tekstil'] },
+      { id: 16, name: 'Osmangazi İlaç Toplama (Örnek)',        address: 'Osmangazi, Bursa', lat: 40.1950, lng: 29.0600, types: ['ilac'] },
+      // Antalya
+      { id: 17, name: 'Muratpaşa Ambalaj Noktası (Örnek)',     address: 'Muratpaşa, Antalya', lat: 36.8848, lng: 30.7040, types: ['ambalaj','pil'] },
+      { id: 18, name: 'Konyaaltı Giysi Kumbarası (Örnek)',     address: 'Konyaaltı, Antalya', lat: 36.8780, lng: 30.6400, types: ['tekstil'] },
+      // Diğer iller
+      { id: 19, name: 'Selçuklu Atık Getirme Merkezi (Örnek)', address: 'Selçuklu, Konya', lat: 37.9450, lng: 32.4950, types: ['pil','eatik','ambalaj'] },
+      { id: 20, name: 'Seyhan Atık Yağ Noktası (Örnek)',       address: 'Seyhan, Adana', lat: 36.9914, lng: 35.3308, types: ['yag','ambalaj'] },
+      { id: 21, name: 'Ortahisar E-Atık Noktası (Örnek)',      address: 'Ortahisar, Trabzon', lat: 41.0027, lng: 39.7168, types: ['eatik','pil'] },
+      { id: 22, name: 'Şahinbey Giysi Kumbarası (Örnek)',      address: 'Şahinbey, Gaziantep', lat: 37.0594, lng: 37.3825, types: ['tekstil','ambalaj'] },
+      { id: 23, name: 'Tepebaşı İlaç Toplama (Örnek)',         address: 'Tepebaşı, Eskişehir', lat: 39.7767, lng: 30.5206, types: ['ilac','pil'] },
+      { id: 24, name: 'Atakum Sahil Atık Noktası (Örnek)',     address: 'Atakum, Samsun', lat: 41.3300, lng: 36.2700, types: ['ambalaj','yag'] },
+      { id: 25, name: 'Kayseri Merkez E-Atık (Örnek)',         address: 'Melikgazi, Kayseri', lat: 38.7225, lng: 35.4875, types: ['eatik','pil','ambalaj'] },
+      { id: 26, name: 'Erzurum Merkez Atık Noktası (Örnek)',   address: 'Yakutiye, Erzurum', lat: 39.9086, lng: 41.2769, types: ['ambalaj','tekstil'] },
+      { id: 27, name: 'Diyarbakır Atık Getirme (Örnek)',       address: 'Kayapınar, Diyarbakır', lat: 37.9300, lng: 40.1700, types: ['pil','yag','ambalaj'] },
+      { id: 28, name: 'Kocaeli İzmit İlaç Toplama (Örnek)',    address: 'İzmit, Kocaeli', lat: 40.7654, lng: 29.9408, types: ['ilac','pil'] }
+    ];
+
+    /* =====================================================================
+       3) UYGULAMA DURUMU
+       ===================================================================== */
+    const DEFAULT_CENTER = { lat: 41.0082, lng: 28.9784 }; // İstanbul
+    const state = {
+      activeType: 'all',
+      query: '',
+      origin: { ...DEFAULT_CENTER },
+      hasUserLocation: false,
+      userSuggestions: JSON.parse(localStorage.getItem('pirtil_suggestions') || '[]'),
+      pickMode: false,
+      pickedLatLng: null
+    };
+    let map, markerLayer, userMarker, pickMarker;
+
+    /* =====================================================================
+       4) YARDIMCI FONKSİYONLAR
+       ===================================================================== */
+    // İki koordinat arası mesafe (km) — Haversine formülü
+    function distanceKm(a, b) {
+      const R = 6371, toRad = d => d * Math.PI / 180;
+      const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(h));
+    }
+    function formatKm(km) { return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`; }
+    function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.style.opacity = '1';
+      clearTimeout(t._h); t._h = setTimeout(() => (t.style.opacity = '0'), 2800);
+    }
+    function allPoints() {
+      return [...MOCK_POINTS, ...state.userSuggestions.map(p => ({ ...p, pending: true }))];
+    }
+    // Filtre + arama + mesafeye göre sıralama
+    function filteredPoints() {
+      const q = state.query.trim().toLocaleLowerCase('tr');
+      return allPoints()
+        .filter(p => state.activeType === 'all' || p.types.includes(state.activeType))
+        .filter(p => !q || `${p.name} ${p.address}`.toLocaleLowerCase('tr').includes(q))
+        .map(p => ({ ...p, dist: distanceKm(state.origin, p) }))
+        .sort((a, b) => a.dist - b.dist);
+    }
+    function directionsUrl(p) {
+      return `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
+    }
+
+    /* =====================================================================
+       5) FİLTRE BUTONLARI
+       ===================================================================== */
+    function renderFilters() {
+      const bar = document.getElementById('filterBar');
+      const items = [['all', { label: 'Tümü', icon: '♻️' }], ...Object.entries(CATEGORIES)];
+      bar.innerHTML = items.map(([key, c]) => {
+        const active = state.activeType === key;
+        return `<button data-type="${key}" class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-semibold border transition
+          ${active ? 'bg-emerald-600 border-emerald-600 text-white shadow' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-emerald-400'}">
+          <span>${c.icon}</span><span>${c.label}</span></button>`;
+      }).join('');
+      bar.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+        state.activeType = b.dataset.type;
+        renderFilters(); renderAll();
+      }));
+    }
+
+    /* =====================================================================
+       6) HARİTA
+       ===================================================================== */
+    function makeIcon(p) {
+      const key = state.activeType !== 'all' && p.types.includes(state.activeType) ? state.activeType : p.types[0];
+      const c = CATEGORIES[key];
+      return L.divIcon({
+        className: '',
+        html: `<div class="pin ${p.pending ? 'pending' : ''}" style="background:${c.color}"><span>${c.icon}</span></div>`,
+        iconSize: [38, 38], iconAnchor: [19, 38], popupAnchor: [0, -36]
+      });
+    }
+    function popupHtml(p) {
+      const tags = p.types.map(t => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;border-radius:999px;font-size:11px;background:${CATEGORIES[t].color}22;color:${CATEGORIES[t].color};font-weight:600">${CATEGORIES[t].icon} ${CATEGORIES[t].label}</span>`).join('');
+      return `
+        <div style="min-width:220px;font-family:Inter,sans-serif">
+          ${p.pending ? '<div style="font-size:11px;font-weight:700;color:#d97706;margin-bottom:4px">⏳ Onay Bekliyor (Vatandaş Önerisi)</div>' : ''}
+          <div style="font-weight:800;font-size:14px;margin-bottom:2px">${escapeHtml(p.name)}</div>
+          <div style="font-size:12px;opacity:.75;margin-bottom:6px">📍 ${escapeHtml(p.address || 'Adres belirtilmedi')}</div>
+          ${p.desc ? `<div style="font-size:12px;margin-bottom:6px">${escapeHtml(p.desc)}</div>` : ''}
+          <div style="margin-bottom:8px">${tags}</div>
+          <div style="font-size:12px;margin-bottom:8px">📏 ${formatKm(p.dist ?? distanceKm(state.origin, p))} uzaklıkta</div>
+          <a href="${directionsUrl(p)}" target="_blank" rel="noopener"
+             style="display:block;text-align:center;background:#059669;color:#fff;padding:8px;border-radius:10px;font-weight:700;font-size:13px;text-decoration:none">🧭 Yol Tarifi Al</a>
+        </div>`;
+    }
+    function initMap() {
+      map = L.map('map', { zoomControl: true }).setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], 11);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, attribution: '&copy; OpenStreetMap katkıcıları'
+      }).addTo(map);
+      markerLayer = L.layerGroup().addTo(map);
+
+      // "Haritadan Seç" modunda tıklanan yeri al
+      map.on('click', e => {
+        if (!state.pickMode) return;
+        setPickedLocation(e.latlng.lat, e.latlng.lng);
+        state.pickMode = false;
+        document.getElementById('pickHint').classList.add('hidden');
+        openModal();
+      });
+    }
+    function renderMarkers(points) {
+      markerLayer.clearLayers();
+      points.forEach(p => {
+        const m = L.marker([p.lat, p.lng], { icon: makeIcon(p) }).bindPopup(popupHtml(p));
+        m._pid = p.id;
+        markerLayer.addLayer(m);
+      });
+    }
+    function focusPoint(id) {
+      markerLayer.eachLayer(m => {
+        if (m._pid == id) { map.setView(m.getLatLng(), 15); m.openPopup(); }
+      });
+      if (window.innerWidth < 1024) document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /* =====================================================================
+       7) LİSTE
+       ===================================================================== */
+    function renderList(points) {
+      const list = document.getElementById('pointList');
+      document.getElementById('resultCount').textContent = `${points.length} nokta`;
+      if (!points.length) {
+        list.innerHTML = `<li class="p-6 text-center text-sm text-gray-500">Bu filtreye uygun nokta bulunamadı. 🌱<br>Bildiğin bir nokta varsa <b>"Yeni Nokta Bildir"</b> ile ekleyebilirsin.</li>`;
+        return;
+      }
+      list.innerHTML = points.map(p => `
+        <li>
+          <button data-id="${p.id}" class="w-full text-left p-3 hover:bg-mint-50 dark:hover:bg-gray-800 transition flex gap-3">
+            <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center text-lg" style="background:${CATEGORIES[p.types[0]].color}22">${CATEGORIES[p.types[0]].icon}</div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-start justify-between gap-2">
+                <p class="font-semibold text-sm leading-snug">${escapeHtml(p.name)}</p>
+                <span class="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400">${formatKm(p.dist)}</span>
+              </div>
+              <p class="text-xs text-gray-500 dark:text-gray-400 truncate">📍 ${escapeHtml(p.address || 'Adres belirtilmedi')}</p>
+              <p class="text-sm mt-1">${p.types.map(t => CATEGORIES[t].icon).join(' ')} ${p.pending ? '<span class="ml-1 text-[11px] font-semibold text-amber-600">⏳ Onay bekliyor</span>' : ''}</p>
+            </div>
+          </button>
+        </li>`).join('');
+      list.querySelectorAll('button[data-id]').forEach(b => b.addEventListener('click', () => focusPoint(b.dataset.id)));
+    }
+
+    function renderAll() {
+      const pts = filteredPoints();
+      renderMarkers(pts);
+      renderList(pts);
+    }
+
+    /* =====================================================================
+       8) KONUM
+       ===================================================================== */
+    function locateUser(showMsg) {
+      if (!navigator.geolocation) { if (showMsg) toast('Tarayıcın konum özelliğini desteklemiyor.'); return; }
+      navigator.geolocation.getCurrentPosition(pos => {
+        state.origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        state.hasUserLocation = true;
+        document.getElementById('distanceSource').textContent = 'Mesafe: Konumuna göre';
+        if (userMarker) userMarker.remove();
+        userMarker = L.marker([state.origin.lat, state.origin.lng], {
+          icon: L.divIcon({ className: '', html: '<div class="user-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] })
+        }).addTo(map).bindPopup('📍 Buradasın');
+        map.setView([state.origin.lat, state.origin.lng], 13);
+        renderAll();
+        if (showMsg) toast('Konumun bulundu, en yakın noktalar sıralandı.');
+      }, () => { if (showMsg) toast('Konum izni verilmedi. İstanbul merkezli gösteriliyor.'); },
+      { enableHighAccuracy: true, timeout: 8000 });
+    }
+
+    /* =====================================================================
+       9) YENİ NOKTA BİLDİR MODALI
+       ===================================================================== */
+    const modal = document.getElementById('suggestModal');
+    function openModal() { modal.classList.remove('hidden'); }
+    function closeModal() { modal.classList.add('hidden'); }
+    function setPickedLocation(lat, lng) {
+      state.pickedLatLng = { lat, lng };
+      document.getElementById('sCoords').textContent = `✅ Seçilen konum: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      if (pickMarker) pickMarker.remove();
+      pickMarker = L.circleMarker([lat, lng], { radius: 9, color: '#059669', fillColor: '#34d399', fillOpacity: .8 }).addTo(map);
+    }
+    function renderTypeCheckboxes() {
+      document.getElementById('sTypes').innerHTML = Object.entries(CATEGORIES).map(([k, c]) => `
+        <label class="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer text-sm">
+          <input type="checkbox" value="${k}" class="accent-emerald-600 w-4 h-4"> <span>${c.icon} ${c.label}</span>
+        </label>`).join('');
+    }
+    function bindModal() {
+      ['openSuggestBtn', 'openSuggestBtnMobile'].forEach(id => document.getElementById(id).addEventListener('click', openModal));
+      document.getElementById('closeSuggestBtn').addEventListener('click', closeModal);
+      modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+      document.getElementById('useMyLocBtn').addEventListener('click', () => {
+        if (!navigator.geolocation) return toast('Tarayıcın konum özelliğini desteklemiyor.');
+        navigator.geolocation.getCurrentPosition(
+          pos => setPickedLocation(pos.coords.latitude, pos.coords.longitude),
+          () => toast('Konum alınamadı, haritadan seçmeyi dene.'),
+          { enableHighAccuracy: true, timeout: 8000 });
+      });
+      document.getElementById('pickOnMapBtn').addEventListener('click', () => {
+        state.pickMode = true;
+        closeModal();
+        document.getElementById('pickHint').classList.remove('hidden');
+        document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+      });
+
+      document.getElementById('suggestForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const types = [...document.querySelectorAll('#sTypes input:checked')].map(i => i.value);
+        if (!types.length) return toast('En az bir atık türü seç.');
+        if (!state.pickedLatLng) return toast('Lütfen noktanın konumunu seç.');
+        const point = {
+          id: 'u' + Date.now(),
+          name: document.getElementById('sName').value.trim(),
+          address: document.getElementById('sAddress').value.trim(),
+          desc: document.getElementById('sDesc').value.trim(),
+          lat: state.pickedLatLng.lat, lng: state.pickedLatLng.lng,
+          types, createdAt: Date.now()
+        };
+        state.userSuggestions.push(point);
+        localStorage.setItem('pirtil_suggestions', JSON.stringify(state.userSuggestions));
+        e.target.reset(); state.pickedLatLng = null;
+        document.getElementById('sCoords').textContent = 'Henüz konum seçilmedi.';
+        if (pickMarker) { pickMarker.remove(); pickMarker = null; }
+        closeModal();
+        state.activeType = 'all'; renderFilters(); renderAll();
+        focusPoint(point.id);
+        toast('🌱 Teşekkürler! Önerin haritaya "Onay Bekliyor" olarak eklendi.');
+      });
+    }
+
+    /* =====================================================================
+       10) TEMA (KARANLIK / AYDINLIK)
+       ===================================================================== */
+    function applyTheme(dark) {
+      document.documentElement.classList.toggle('dark', dark);
+      document.getElementById('themeToggle').textContent = dark ? '☀️' : '🌙';
+      localStorage.setItem('pirtil_theme', dark ? 'dark' : 'light');
+    }
+
+    /* =====================================================================
+       11) BAŞLATMA
+       ===================================================================== */
+    document.addEventListener('DOMContentLoaded', () => {
+      const saved = localStorage.getItem('pirtil_theme');
+      applyTheme(saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.getElementById('themeToggle').addEventListener('click', () => applyTheme(!document.documentElement.classList.contains('dark')));
+
+      initMap();
+      renderFilters();
+      renderTypeCheckboxes();
+      bindModal();
+      renderAll();
+
+      document.getElementById('searchInput').addEventListener('input', e => { state.query = e.target.value; renderAll(); });
+      document.getElementById('locateBtn').addEventListener('click', () => locateUser(true));
+      locateUser(false); // Açılışta izin istenir; reddedilirse İstanbul merkezli kalır
+    });
+  </script>
+</body>
+</html>
