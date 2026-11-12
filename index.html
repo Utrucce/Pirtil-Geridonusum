@@ -12,7 +12,6 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Tailwind ayarları: sınıf tabanlı karanlık mod + marka renkleri
     tailwind.config = {
       darkMode: 'class',
       theme: {
@@ -34,24 +33,59 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <style>
-    /* Harita yüksekliği ve özel pin görünümü */
-    #map { height: 100%; min-height: 420px; z-index: 0; background: #e5e7eb; }
+    /* Harita alanı ve pin görünümü */
+    #mapWrapper { position: relative; width: 100%; transition: all 0.2s ease-in-out; }
+    #map { height: 100%; min-height: 440px; z-index: 0; background: #0b1329; }
+    
+    /* Tam Ekran Modu stilleri */
+    #mapWrapper:fullscreen {
+      width: 100vw !important;
+      height: 100vh !important;
+      border-radius: 0 !important;
+      border: none !important;
+      margin: 0 !important;
+    }
+    #mapWrapper:fullscreen #map { height: 100vh !important; }
+    
+    .is-fullscreen-fallback {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 9999 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      border-radius: 0 !important;
+      border: none !important;
+    }
+    .is-fullscreen-fallback #map { height: 100vh !important; }
+
+    /* Pin Stilleri */
     .pin {
       width: 38px; height: 38px; border-radius: 50% 50% 50% 0;
       transform: rotate(-45deg); display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,.25); border: 2px solid #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,.35); border: 2px solid #fff;
+      transition: transform 0.15s ease;
     }
+    .pin:hover { transform: rotate(-45deg) scale(1.12); }
     .pin span { transform: rotate(45deg); font-size: 18px; line-height: 1; }
     .pin.pending { opacity: .75; border-style: dashed; }
     .user-dot {
       width: 18px; height: 18px; border-radius: 50%; background: #2563eb;
-      border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(37,99,235,.25);
+      border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(37,99,235,.3);
     }
+
+    /* Türkiye dışı buğu ve maske efekti */
+    .turkey-mask-polygon {
+      filter: drop-shadow(0 0 14px rgba(16, 185, 129, 0.45));
+      backdrop-filter: blur(4px);
+      pointer-events: none;
+    }
+
     /* Popup görünümü */
-    .leaflet-popup-content-wrapper { border-radius: 14px; }
+    .leaflet-popup-content-wrapper { border-radius: 14px; box-shadow: 0 10px 25px -5px rgba(0,0,0,.3); }
     .leaflet-popup-content { margin: 12px 14px; }
     .dark .leaflet-popup-content-wrapper, .dark .leaflet-popup-tip { background: #1f2937; color: #f3f4f6; }
-    .dark .leaflet-tile-pane { filter: brightness(.78) contrast(1.1) saturate(.85); }
+    .dark .leaflet-tile-pane { filter: brightness(.82) contrast(1.12) saturate(.9); }
+    
     /* İnce kaydırma çubuğu */
     .thin-scroll::-webkit-scrollbar { width: 6px; }
     .thin-scroll::-webkit-scrollbar-thumb { background: #a7f3d0; border-radius: 6px; }
@@ -70,7 +104,13 @@
           <img src="assets/logo.png" alt="Pırtıl logosu" class="w-full h-full object-cover" />
         </div>
         <div class="min-w-0">
-          <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-emerald-700 dark:text-emerald-400 leading-tight">Pırtıl Geridönüşüm</h1>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-emerald-700 dark:text-emerald-400 leading-tight">Pırtıl Geridönüşüm</h1>
+            <span id="headerTotalBadge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-sm">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span id="headerCountNum">0</span> Nokta
+            </span>
+          </div>
           <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">♻️ En Yakın Geri Dönüşüm Noktasını Bul</p>
         </div>
       </a>
@@ -93,18 +133,29 @@
     <!-- ================= HARİTA + LİSTE ================= -->
     <section class="grid lg:grid-cols-[1fr_390px] gap-4">
 
-      <!-- Harita -->
-      <div class="relative rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm h-[55vh] lg:h-[calc(100vh-210px)]">
+      <!-- Harita Alanı -->
+      <div id="mapWrapper" class="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm h-[55vh] lg:h-[calc(100vh-210px)]">
         <div id="map"></div>
-        <button id="locateBtn" class="absolute z-[400] bottom-4 right-4 bg-white dark:bg-gray-800 text-sm font-semibold px-3.5 py-2.5 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-mint-50 dark:hover:bg-gray-700 transition flex items-center gap-1.5">
+        
+        <!-- Tam Ekran Butonu -->
+        <button id="fullscreenBtn" title="Tam Ekran / Normal Ekran"
+          class="absolute z-[400] top-4 right-4 bg-white/95 dark:bg-gray-800/95 backdrop-blur text-xs sm:text-sm font-semibold px-3 py-2 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-mint-50 dark:hover:bg-gray-700 transition flex items-center gap-1.5">
+          <span id="fsIcon">⛶</span> <span id="fsText">Tam Ekran</span>
+        </button>
+
+        <!-- Konum Butonu -->
+        <button id="locateBtn"
+          class="absolute z-[400] bottom-4 right-4 bg-white/95 dark:bg-gray-800/95 backdrop-blur text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-mint-50 dark:hover:bg-gray-700 transition flex items-center gap-1.5">
           <span>📍</span> <span>Konumum</span>
         </button>
-        <div id="pickHint" class="hidden absolute z-[400] top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-lg">
+        
+        <!-- Haritadan Seç Uyarısı -->
+        <div id="pickHint" class="hidden absolute z-[400] top-4 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-xl shadow-lg">
           Haritada noktanın yerine dokun
         </div>
       </div>
 
-      <!-- Liste -->
+      <!-- Liste Alanı -->
       <aside class="flex flex-col rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm lg:h-[calc(100vh-210px)]">
         <div class="p-3 border-b border-gray-100 dark:border-gray-800">
           <input id="searchInput" type="search" placeholder="🔍 Nokta, ilçe veya şehir ara..."
@@ -184,7 +235,7 @@
 
   <script>
     /* =====================================================================
-       1) ATIK KATEGORİLERİ (Genişletilmiş Resmi Atık Sınıfları)
+       1) ATIK KATEGORİLERİ (Genişletilmiş Resmi Sıfır Atık Sınıfları)
        ===================================================================== */
     const CATEGORIES = {
       pil:        { label: 'Pil ve Akü',               icon: '🔋', color: '#f59e0b' },
@@ -201,89 +252,21 @@
     };
 
     /* =====================================================================
-       2) GERÇEK VERİLER (TÜRKİYE 1. SINIF ATIK GETİRME VE GERİ DÖNÜŞÜM MERKEZLERİ)
+       2) GERÇEK VERİLER (TÜRKİYE GENELİ 1. SINIF ATIK GETİRME MERKEZLERİ)
        ===================================================================== */
-    const REAL_POINTS = [
-      // İstanbul
-      { id: 101, name: 'Kadıköy Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Merdivenköy Mah. Dikyol Sok. No:1 Kadıköy, İstanbul', lat: 40.9904, lng: 29.0715, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','lastik','hacimli','metal','aydinlatma','organik'], desc: 'Hafta içi ve cumartesi 08:30 - 17:00 arası açık. Tüm atık türleri kabul edilmektedir.' },
-      { id: 102, name: 'Beşiktaş Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Levent Mah. Çamlık Cad. No:3 Beşiktaş, İstanbul', lat: 41.0815, lng: 29.0142, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','aydinlatma'], desc: '08:30 - 16:30 arası hizmet vermektedir.' },
-      { id: 103, name: 'Üsküdar Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Bulgurlu Mah. Libadiye Cad. No:82 Üsküdar, İstanbul', lat: 41.0118, lng: 29.0772, types: ['pil','eatik','yag','tekstil','ambalaj','hacimli','metal','organik'], desc: 'Üsküdar Belediyesi Temizlik İşleri Müdürlüğü yerleşkesi.' },
-      { id: 104, name: 'Maltepe Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Gülsuyu Mah. Fevzi Çakmak Cad. Maltepe, İstanbul', lat: 40.9285, lng: 29.1550, types: ['pil','eatik','yag','ambalaj','lastik','hacimli','metal'], desc: 'Belediye ana atık getirme tesisi.' },
-      { id: 105, name: 'Bakırköy Belediyesi Atık Getirme Merkezi', address: 'Osmaniye Mah. Fildamı Yolu Sok. Bakırköy, İstanbul', lat: 40.9961, lng: 28.8785, types: ['pil','eatik','yag','tekstil','ilac','ambalaj'], desc: 'Çevre Koruma ve Kontrol Müdürlüğü koordinasyonunda.' },
-      { id: 106, name: 'Ataşehir Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Barbaros Mah. Mor Sümbül Sok. No:7 Ataşehir, İstanbul', lat: 40.9942, lng: 29.1098, types: ['pil','eatik','yag','tekstil','ambalaj','lastik','metal','aydinlatma'], desc: 'Hafta içi 08:30 - 17:00 açık.' },
-      { id: 107, name: 'Beylikdüzü Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Yakuplu Mah. Hürriyet Bulvarı No:1 Beylikdüzü, İstanbul', lat: 40.9855, lng: 28.6720, types: ['pil','eatik','yag','tekstil','ambalaj','hacimli','metal','lastik'], desc: 'Sıfır Atık vizyonu ile kurulan kapsamlı merkez.' },
-      { id: 108, name: 'Kartal Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Karlıktepe Mah. Spor Cad. No:3 Kartal, İstanbul', lat: 40.8967, lng: 29.1915, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','hacimli'], desc: '08:30 - 17:00 mesai saatlerinde açıktır.' },
-      { id: 109, name: 'Sarıyer Belediyesi Atık Getirme Merkezi', address: 'Çayırbaşı Mah. Bahçeköy Cad. No:5 Sarıyer, İstanbul', lat: 41.1623, lng: 29.0347, types: ['pil','eatik','yag','ambalaj','tekstil','organik'], desc: 'Bahçe ve budama atıkları ile ambalaj atıkları kabul edilir.' },
-      { id: 110, name: 'Şişli Belediyesi Mobil Atık & İlaç Toplama İstasyonu', address: 'Merkez Mah. Abide-i Hürriyet Cad. Şişli, İstanbul', lat: 41.0610, lng: 28.9880, types: ['ilac','pil','eatik','tekstil'], desc: 'Eczanelerle koordineli miadı dolmuş ilaç ve e-atık teslim noktası.' },
-      { id: 111, name: 'Fatih Belediyesi Sıfır Atık Merkezi', address: 'Topkapı Mah. Sulukule Cad. Fatih, İstanbul', lat: 41.0210, lng: 28.9320, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Fatih Tarihi Yarımada Sıfır Atık kabul istasyonu.' },
-
-      // Ankara
-      { id: 201, name: 'Çankaya Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Birlik Mah. 448. Cad. No:10 Çankaya, Ankara', lat: 39.8732, lng: 32.8715, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','lastik','hacimli','metal','aydinlatma'], desc: 'Ankara Çankaya Sıfır Atık Koordinasyon Tesisi.' },
-      { id: 202, name: 'Yenimahalle Belediyesi Atık Getirme Merkezi', address: 'Macun Mah. Bağdat Cad. No:88 Yenimahalle, Ankara', lat: 39.9721, lng: 32.7485, types: ['pil','eatik','yag','ambalaj','tekstil','metal','lastik'], desc: 'Ostim ve Batıkent bölgesi atık kabul merkezi.' },
-      { id: 203, name: 'Keçiören Belediyesi Atık Getirme Merkezi', address: 'Ovacık Mah. Yozgat Bulvarı Keçiören, Ankara', lat: 40.0150, lng: 32.8420, types: ['pil','eatik','yag','ambalaj','tekstil','hacimli'], desc: 'Keçiören Belediyesi Çevre Koruma Tesisi.' },
-      { id: 204, name: 'Etimesgut Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Alsancak Mah. Yeşilova Cad. Etimesgut, Ankara', lat: 39.9480, lng: 32.6570, types: ['pil','eatik','yag','ambalaj','tekstil','metal'], desc: 'Etimesgut ve Eryaman bölgesine hizmet vermektedir.' },
-      { id: 205, name: 'Altındağ Belediyesi Sıfır Atık Toplama Merkezi', address: 'Zübeyde Hanım Mah. Turgut Özal Bulvarı Altındağ, Ankara', lat: 39.9530, lng: 32.8580, types: ['pil','eatik','yag','ambalaj','tekstil','ilac'], desc: 'Tüm ambalaj ve tehlikeli atıklar ayrıştırılmaktadır.' },
-
-      // İzmir
-      { id: 301, name: 'Karşıyaka Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Latife Hanım Mah. 7400/2 Sok. No:3 Karşıyaka, İzmir', lat: 38.4890, lng: 27.1215, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','lastik','hacimli','metal','aydinlatma'], desc: 'Karşıyaka Sıfır Atık ve Geri Dönüşüm Ana Tesisi.' },
-      { id: 302, name: 'Bornova Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Naldöken Mah. 1204 Sok. No:16 Bornova, İzmir', lat: 38.4520, lng: 27.2430, types: ['pil','eatik','yag','tekstil','ambalaj','metal','hacimli'], desc: 'Bornova Belediyesi Temizlik İşleri Yerleşkesi.' },
-      { id: 303, name: 'Konak Belediyesi Atık Getirme Merkezi', address: 'Hilal Mah. 1215 Sok. Konak, İzmir', lat: 38.4230, lng: 27.1510, types: ['pil','eatik','yag','tekstil','ambalaj','ilac'], desc: 'Konak merkez atık toplama ve ayrıştırma istasyonu.' },
-      { id: 304, name: 'Çiğli Belediyesi Atık Getirme Merkezi', address: 'Balatçık Mah. Anadolu Cad. Çiğli, İzmir', lat: 38.5080, lng: 27.0420, types: ['pil','eatik','yag','ambalaj','lastik','metal'], desc: 'Çiğli ve SASALI çevresi atık kabul birimi.' },
-      { id: 305, name: 'Buca Belediyesi Sıfır Atık Tesisi', address: 'Kaynaklar Merkez Mah. Buca, İzmir', lat: 38.3750, lng: 27.2340, types: ['pil','eatik','yag','ambalaj','tekstil','organik'], desc: 'Budama ve organik kompost atıkları da işlenmektedir.' },
-
-      // Bursa
-      { id: 401, name: 'Nilüfer Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Alaaddinbey Mah. 614. Sok. No:12 Nilüfer, Bursa', lat: 40.1985, lng: 28.9145, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','lastik','hacimli','metal','aydinlatma','organik'], desc: 'Türkiye nin en modern entegre 1. Sınıf atık getirme merkezlerinden biridir.' },
-      { id: 402, name: 'Osmangazi Belediyesi Atık Getirme Merkezi', address: 'Demirtaş Dumlupınar Mah. Osmangazi, Bursa', lat: 40.2490, lng: 29.0760, types: ['pil','eatik','yag','ambalaj','tekstil','metal'], desc: 'Hafta içi 08:30 - 17:30 arası açıktır.' },
-      { id: 403, name: 'Yıldırım Belediyesi Sıfır Atık Merkezi', address: 'Duaçınarı Mah. Ankara Yolu Cad. Yıldırım, Bursa', lat: 40.1910, lng: 29.0980, types: ['pil','eatik','yag','ambalaj','tekstil','ilac'], desc: 'Ambalaj, elektronik ve tekstil atıkları kabul edilir.' },
-
-      // Antalya
-      { id: 501, name: 'Muratpaşa Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Sedir Mah. Gazi Bulvarı No:142 Muratpaşa, Antalya', lat: 36.9065, lng: 30.6890, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','lastik','hacimli','metal','aydinlatma'], desc: 'Çevreci Komşu Kart projesinin ana atık teslim merkezi.' },
-      { id: 502, name: 'Konyaaltı Belediyesi Atık Getirme Merkezi', address: 'Gürsu Mah. 304. Sok. Konyaaltı, Antalya', lat: 36.8715, lng: 30.6270, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Sahil şeridi ve yerleşim alanları atık getirme birimi.' },
-      { id: 503, name: 'Kepez Belediyesi Geri Dönüşüm Tesisi', address: 'Fevzi Çakmak Mah. Antalya Cad. Kepez, Antalya', lat: 36.9380, lng: 30.7020, types: ['pil','eatik','yag','ambalaj','metal','lastik'], desc: 'Kepez Sıfır Atık koordinasyon merkezi.' },
-
-      // Eskişehir
-      { id: 601, name: 'Tepebaşı Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Uluönder Mah. İsmet İnönü-2 Cad. No:20 Tepebaşı, Eskişehir', lat: 39.7940, lng: 30.4990, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','metal','aydinlatma'], desc: 'Akıllı şehir ve sürdürülebilirlik ilkelerine uygun Sıfır Atık tesisi.' },
-      { id: 602, name: 'Odunpazarı Belediyesi Atık Getirme Merkezi', address: '71 Evler Mah. Dedeefendi Cad. Odunpazarı, Eskişehir', lat: 39.7430, lng: 30.5620, types: ['pil','eatik','yag','ambalaj','tekstil','hacimli'], desc: 'Odunpazarı Belediyesi Çevre Koruma Birimi.' },
-
-      // Konya
-      { id: 701, name: 'Selçuklu Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Sakarya Mah. Ahmet Kabaklı Cad. No:8 Selçuklu, Konya', lat: 37.9310, lng: 32.5020, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','metal','lastik','hacimli'], desc: 'Selçuklu Sıfır Atık Entegre Atık Getirme Tesisi.' },
-      { id: 702, name: 'Meram Belediyesi Sıfır Atık Merkezi', address: 'Harmancık Mah. Meram, Konya', lat: 37.8340, lng: 32.4410, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Organik kompost ve ambalaj ayrıştırma alanı.' },
-
-      // Adana & Mersin
-      { id: 801, name: 'Seyhan Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Yeşilyurt Mah. Karaisalı Cad. No:45 Seyhan, Adana', lat: 37.0120, lng: 35.2950, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','metal','lastik'], desc: 'Seyhan Belediyesi Atık Yönetim Yerleşkesi.' },
-      { id: 802, name: 'Çukurova Belediyesi Atık Getirme Merkezi', address: 'Toros Mah. Barış Manço Bulvarı Çukurova, Adana', lat: 37.0450, lng: 35.2890, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Hafta içi 08:00 - 17:00 arası kabul yapılır.' },
-      { id: 803, name: 'Yenişehir Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Bahçelievler Mah. 18. Cad. Yenişehir, Mersin', lat: 36.7890, lng: 34.5930, types: ['pil','eatik','yag','ambalaj','tekstil','ilac','metal'], desc: 'Mersin Yenişehir Sıfır Atık Toplama Tesisi.' },
-
-      // Gaziantep
-      { id: 901, name: 'Şahinbey Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Mavikent Mah. Şahinbey, Gaziantep', lat: 37.0090, lng: 37.3510, types: ['pil','eatik','yag','tekstil','ambalaj','hacimli','metal','lastik'], desc: 'Şahinbey Bölgesi 1. Sınıf Atık Getirme Tesisleri.' },
-      { id: 902, name: 'Şehitkamil Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'İpekyolu Mah. Şehitkamil, Gaziantep', lat: 37.0820, lng: 37.3990, types: ['pil','eatik','yag','ambalaj','tekstil','metal'], desc: 'Sıfır Atık standartlarına tam uyumlu toplama merkezi.' },
-
-      // Kocaeli & Sakarya
-      { id: 1001, name: 'İzmit Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Yahyakaptan Mah. Hanedan Sok. İzmit, Kocaeli', lat: 40.7680, lng: 29.9720, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','metal','aydinlatma'], desc: 'Kocaeli geneline hizmet veren 1. Sınıf Atık Getirme Merkezi.' },
-      { id: 1002, name: 'Adapazarı Belediyesi Sıfır Atık Tesisi', address: 'Güllük Mah. Sağlık Cad. Adapazarı, Sakarya', lat: 40.7780, lng: 30.4020, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Adapazarı Belediyesi Temizlik İşleri İstasyonu.' },
-
-      // Karadeniz (Samsun & Trabzon)
-      { id: 1101, name: 'Atakum Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Küçükkolpınar Mah. 638. Sok. Atakum, Samsun', lat: 41.3120, lng: 36.2680, types: ['pil','eatik','yag','tekstil','ambalaj','metal','lastik'], desc: 'Karadeniz sahil bölgesinin kapsamlı atık getirme tesisi.' },
-      { id: 1102, name: 'Ortahisar Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Akyazı Mah. Sahil Cad. Ortahisar, Trabzon', lat: 41.0010, lng: 39.6730, types: ['pil','eatik','yag','tekstil','ambalaj','eatik'], desc: 'Ortahisar Belediyesi Çevre Koruma İstasyonu.' },
-
-      // İç ve Doğu Anadolu (Kayseri, Erzurum, Diyarbakır)
-      { id: 1201, name: 'Melikgazi Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Eğribucak Mah. Melikgazi, Kayseri', lat: 38.6940, lng: 35.4610, types: ['pil','eatik','yag','ambalaj','tekstil','metal','hacimli'], desc: 'Kayseri Sıfır Atık Uygulama Tesisi.' },
-      { id: 1202, name: 'Yakutiye Belediyesi Sıfır Atık Noktası', address: 'Muratpaşa Mah. Ali Ravi Cad. Yakutiye, Erzurum', lat: 39.9080, lng: 41.2740, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Erzurum Merkez Sıfır Atık Toplama Ünitesi.' },
-      { id: 1203, name: 'Kayapınar Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Pirinçlik Mah. Urfa Yolu Üzeri Kayapınar, Diyarbakır', lat: 37.9360, lng: 40.1620, types: ['pil','eatik','yag','ambalaj','tekstil','metal'], desc: 'Diyarbakır Sıfır Atık Entegre Atık Tesisi.' },
-
-      // Ege (Denizli, Balıkesir, Muğla)
-      { id: 1301, name: 'Pamukkale Belediyesi Atık Getirme Merkezi', address: 'Fevzi Çakmak Mah. Pamukkale, Denizli', lat: 37.8010, lng: 29.1120, types: ['pil','eatik','yag','ambalaj','tekstil','ilac','metal'], desc: 'Denizli Pamukkale Çevre Koruma Yerleşkesi.' },
-      { id: 1302, name: 'Karesi Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Kuvayi Milliye Mah. Karesi, Balıkesir', lat: 39.6640, lng: 27.8760, types: ['pil','eatik','yag','ambalaj','tekstil','hacimli'], desc: 'Balıkesir Karesi Sıfır Atık Tesisi.' },
-      { id: 1303, name: 'Bodrum Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Konacık Mah. Gazideresi Cad. Bodrum, Muğla', lat: 37.0420, lng: 27.3910, types: ['pil','eatik','yag','ambalaj','tekstil','lastik','organik'], desc: 'Bodrum Yarımadası 1. Sınıf Atık Getirme ve Kompost Tesisi.' }
-    ];
+    const REAL_POINTS = [{"id": 101, "name": "Kadıköy Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Merdivenköy Mah. Dikyol Sok. No:1 Kadıköy, İstanbul", "lat": 40.9904, "lng": 29.0715, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj", "lastik", "hacimli", "metal", "aydinlatma", "organik"], "desc": "08:30 - 17:00. Tüm atık türleri lisanslı olarak kabul edilmektedir."}, {"id": 102, "name": "Beşiktaş Belediyesi Atık Getirme Merkezi", "address": "Levent Mah. Çamlık Cad. No:3 Beşiktaş, İstanbul", "lat": 41.0815, "lng": 29.0142, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj", "aydinlatma"], "desc": "E-atık ve ambalaj atıklarını ayrıştırarak teslim edebilirsiniz."}, {"id": 103, "name": "Üsküdar Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Bulgurlu Mah. Libadiye Cad. No:82 Üsküdar, İstanbul", "lat": 41.0118, "lng": 29.0772, "types": ["pil", "eatik", "yag", "tekstil", "ambalaj", "hacimli", "metal", "organik"], "desc": "Üsküdar Belediyesi Temizlik İşleri Yerleşkesi."}, {"id": 104, "name": "Maltepe Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Gülsuyu Mah. Fevzi Çakmak Cad. Maltepe, İstanbul", "lat": 40.9285, "lng": 29.155, "types": ["pil", "eatik", "yag", "ambalaj", "lastik", "hacimli", "metal"], "desc": "Belediye ana atık transfer ve geri dönüşüm tesisi."}, {"id": 105, "name": "Bakırköy Belediyesi Atık Getirme Merkezi", "address": "Osmaniye Mah. Fildamı Yolu Sok. Bakırköy, İstanbul", "lat": 40.9961, "lng": 28.8785, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj"], "desc": "Çevre Koruma ve Kontrol Müdürlüğü."}, {"id": 106, "name": "Ataşehir Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Barbaros Mah. Mor Sümbül Sok. No:7 Ataşehir, İstanbul", "lat": 40.9942, "lng": 29.1098, "types": ["pil", "eatik", "yag", "tekstil", "ambalaj", "lastik", "metal", "aydinlatma"], "desc": "Hafta içi 08:30 - 17:00 açık."}, {"id": 107, "name": "Beylikdüzü Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Yakuplu Mah. Hürriyet Bulvarı No:1 Beylikdüzü, İstanbul", "lat": 40.9855, "lng": 28.672, "types": ["pil", "eatik", "yag", "tekstil", "ambalaj", "hacimli", "metal", "lastik"], "desc": "Sıfır Atık vizyonu ile kurulan entegre merkez."}, {"id": 108, "name": "Kartal Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Karlıktepe Mah. Spor Cad. No:3 Kartal, İstanbul", "lat": 40.8967, "lng": 29.1915, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj", "hacimli"], "desc": "Mesai saatlerinde tüm ayrıştırılmış atıklar kabul edilir."}, {"id": 109, "name": "Sarıyer Belediyesi Atık Getirme Merkezi", "address": "Çayırbaşı Mah. Bahçeköy Cad. No:5 Sarıyer, İstanbul", "lat": 41.1623, "lng": 29.0347, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "organik"], "desc": "Bahçe ve budama atıkları ile ambalaj atıkları."}, {"id": 110, "name": "Şişli Belediyesi Mobil Atık & İlaç Toplama Noktası", "address": "Merkez Mah. Abide-i Hürriyet Cad. Şişli, İstanbul", "lat": 41.061, "lng": 28.988, "types": ["ilac", "pil", "eatik", "tekstil"], "desc": "Eczaneler koordineli miadı dolmuş ilaç ve e-atık noktası."}, {"id": 111, "name": "Fatih Belediyesi Sıfır Atık Merkezi", "address": "Topkapı Mah. Sulukule Cad. Fatih, İstanbul", "lat": 41.021, "lng": 28.932, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Tarihi Yarımada Sıfır Atık kabul istasyonu."}, {"id": 112, "name": "Ümraniye Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Hekimbaşı Mah. Küçüksu Cad. No:112 Ümraniye, İstanbul", "lat": 41.045, "lng": 29.098, "types": ["pil", "eatik", "yag", "ambalaj", "hacimli", "lastik", "metal"], "desc": "Geniş hacimli atıklar ve ahşap atıklar kabul edilir."}, {"id": 113, "name": "Pendik Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Fevzi Çakmak Mah. Mimar Sinan Cad. Pendik, İstanbul", "lat": 40.879, "lng": 29.248, "types": ["pil", "eatik", "yag", "tekstil", "ambalaj", "metal", "hacimli"], "desc": "Pendik Belediyesi Çevre Yönetim Merkezi."}, {"id": 114, "name": "Başakşehir Belediyesi Sıfır Atık ve Geri Dönüşüm Tesisi", "address": "Kayabaşı Mah. 15. Bölge Başakşehir, İstanbul", "lat": 41.112, "lng": 28.775, "types": ["pil", "eatik", "yag", "ambalaj", "metal", "organik"], "desc": "Kompost ve geri dönüşüm ayrıştırma tesisi."}, {"id": 115, "name": "Tuzla Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Aydınlı Mah. Tuzla Mermerciler Sanayi Sitesi Yanı Tuzla, İstanbul", "lat": 40.865, "lng": 29.351, "types": ["pil", "eatik", "yag", "ambalaj", "lastik", "metal", "hacimli"], "desc": "Sanayi ve evsel atıkların kabul edildiği merkez."}, {"id": 116, "name": "Eyüpsultan Belediyesi Atık Getirme Merkezi", "address": "İslambey Mah. Hz. Halid Bulvarı Eyüpsultan, İstanbul", "lat": 41.053, "lng": 28.931, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Evsel nitelikli ambalaj ve bitkisel yağ kabul noktası."}, {"id": 117, "name": "Beykoz Belediyesi Çevre Koruma ve Atık Tesisi", "address": "Çavuşbaşı Çengeldere Mah. Beykoz, İstanbul", "lat": 41.098, "lng": 29.135, "types": ["pil", "eatik", "yag", "ambalaj", "organik", "hacimli"], "desc": "Orman budama ve organik atık dönüşümü de yapılmaktadır."}, {"id": 118, "name": "Zeytinburnu Belediyesi Atık Kazanç Merkezi", "address": "Seyitnizam Mah. Balıklı Çırpıcı Yolu No:10 Zeytinburnu, İstanbul", "lat": 41.001, "lng": 28.902, "types": ["pil", "eatik", "yag", "tekstil", "ambalaj", "metal"], "desc": "Atık Kazanç projesi kapsamında tartım ve kabul noktası."}, {"id": 119, "name": "Çekmeköy Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Merkez Mah. Köroğlu Cad. Çekmeköy, İstanbul", "lat": 41.035, "lng": 29.182, "types": ["pil", "eatik", "yag", "ambalaj", "hacimli", "tekstil"], "desc": "Evlerden çıkan hacimli ve elektronik atıklar kabul edilir."}, {"id": 120, "name": "Büyükçekmece Belediyesi Atık Getirme Merkezi", "address": "Dizdariye Mah. Sahil Yolu Büyükçekmece, İstanbul", "lat": 41.022, "lng": 28.586, "types": ["pil", "eatik", "yag", "ambalaj", "lastik"], "desc": "Göl ve deniz çevresi çevre koruma birimi."}, {"id": 121, "name": "Silivri Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Alibey Mah. Akgün Silivrili Cad. Silivri, İstanbul", "lat": 41.078, "lng": 28.249, "types": ["pil", "eatik", "yag", "ambalaj", "lastik", "organik", "metal"], "desc": "Tarımsal ve kentsel atıkların ayrıştırma tesisi."}, {"id": 122, "name": "Sancaktepe Belediyesi Atık Getirme Merkezi", "address": "Samandıra Eyüp Sultan Mah. Sancaktepe, İstanbul", "lat": 40.978, "lng": 29.224, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal"], "desc": "Samandıra bölgesinde hizmet veren kabul merkezi."}, {"id": 201, "name": "Çankaya Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Birlik Mah. 448. Cad. No:10 Çankaya, Ankara", "lat": 39.8732, "lng": 32.8715, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj", "lastik", "hacimli", "metal", "aydinlatma"], "desc": "Ankara Çankaya Sıfır Atık Koordinasyon Tesisi."}, {"id": 202, "name": "Yenimahalle Belediyesi Atık Getirme Merkezi", "address": "Macun Mah. Bağdat Cad. No:88 Yenimahalle, Ankara", "lat": 39.9721, "lng": 32.7485, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal", "lastik"], "desc": "Ostim ve Batıkent bölgesi atık kabul merkezi."}, {"id": 203, "name": "Keçiören Belediyesi Atık Getirme Merkezi", "address": "Ovacık Mah. Yozgat Bulvarı Keçiören, Ankara", "lat": 40.015, "lng": 32.842, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "hacimli"], "desc": "Keçiören Belediyesi Çevre Koruma Tesisi."}, {"id": 204, "name": "Etimesgut Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Alsancak Mah. Yeşilova Cad. Etimesgut, Ankara", "lat": 39.948, "lng": 32.657, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal"], "desc": "Etimesgut ve Eryaman bölgesine hizmet verir."}, {"id": 205, "name": "Altındağ Belediyesi Sıfır Atık Toplama Merkezi", "address": "Zübeyde Hanım Mah. Turgut Özal Bulvarı Altındağ, Ankara", "lat": 39.953, "lng": 32.858, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "ilac"], "desc": "Ambalaj ve tehlikeli atıklar ayrıştırılmaktadır."}, {"id": 206, "name": "Mamak Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Kayaş Mah. 19 Mayıs Bulvarı Mamak, Ankara", "lat": 39.928, "lng": 32.964, "types": ["pil", "eatik", "yag", "ambalaj", "hacimli", "metal"], "desc": "Katı atık ve geri dönüşüm ayrıştırma sahası."}, {"id": 207, "name": "Sincan Belediyesi Sıfır Atık Merkezi", "address": "Fatih Mah. Çimşit Yolu Üzeri Sincan, Ankara", "lat": 39.959, "lng": 32.558, "types": ["pil", "eatik", "yag", "ambalaj", "lastik", "organik"], "desc": "Kompost ve geri dönüşüm entegre tesisi."}, {"id": 208, "name": "Gölbaşı Belediyesi Atık Getirme Merkezi", "address": "Bahçelievler Mah. Konya Yolu Gölbaşı, Ankara", "lat": 39.791, "lng": 32.805, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Mogan gölü çevresi çevre koruma tesisi."}, {"id": 209, "name": "Pursaklar Belediyesi Sıfır Atık İstasyonu", "address": "Mimar Sinan Mah. Ceyhan Sok. Pursaklar, Ankara", "lat": 40.038, "lng": 32.905, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Elektronik, yağ ve ambalaj kabul istasyonu."}, {"id": 301, "name": "Karşıyaka Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Latife Hanım Mah. 7400/2 Sok. No:3 Karşıyaka, İzmir", "lat": 38.489, "lng": 27.1215, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj", "lastik", "hacimli", "metal", "aydinlatma"], "desc": "Karşıyaka Sıfır Atık Ana Tesisi."}, {"id": 302, "name": "Bornova Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Naldöken Mah. 1204 Sok. No:16 Bornova, İzmir", "lat": 38.452, "lng": 27.243, "types": ["pil", "eatik", "yag", "tekstil", "ambalaj", "metal", "hacimli"], "desc": "Bornova Belediyesi Temizlik İşleri Yerleşkesi."}, {"id": 303, "name": "Konak Belediyesi Atık Getirme Merkezi", "address": "Hilal Mah. 1215 Sok. Konak, İzmir", "lat": 38.423, "lng": 27.151, "types": ["pil", "eatik", "yag", "tekstil", "ambalaj", "ilac"], "desc": "Konak merkez atık toplama istasyonu."}, {"id": 304, "name": "Çiğli Belediyesi Atık Getirme Merkezi", "address": "Balatçık Mah. Anadolu Cad. Çiğli, İzmir", "lat": 38.508, "lng": 27.042, "types": ["pil", "eatik", "yag", "ambalaj", "lastik", "metal"], "desc": "Çiğli ve SASALI çevresi atık birimi."}, {"id": 305, "name": "Buca Belediyesi Sıfır Atık Tesisi", "address": "Kaynaklar Merkez Mah. Buca, İzmir", "lat": 38.375, "lng": 27.234, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "organik"], "desc": "Budama ve organik kompost atıkları da işlenmektedir."}, {"id": 306, "name": "Karabağlar Belediyesi Atık Getirme Merkezi", "address": "Aydın Mah. Yeşillik Cad. Karabağlar, İzmir", "lat": 38.381, "lng": 27.129, "types": ["pil", "eatik", "yag", "ambalaj", "hacimli", "metal"], "desc": "Mobilya ve hacimli ahşap atık kabul noktası."}, {"id": 307, "name": "Balçova Belediyesi Sıfır Atık Noktası", "address": "Çetin Emeç Mah. Olimpiyat Cad. Balçova, İzmir", "lat": 38.388, "lng": 27.051, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Teleferik civarı atık kabul noktası."}, {"id": 308, "name": "Narlıdere Belediyesi Atık Getirme Tesisi", "address": "Huzur Mah. Mithatpaşa Cad. Narlıdere, İzmir", "lat": 38.397, "lng": 26.995, "types": ["pil", "eatik", "yag", "ambalaj", "ilac"], "desc": "Geri dönüşümlü atıklar kabul edilir."}, {"id": 309, "name": "Gaziemir Belediyesi Atık Getirme Merkezi", "address": "Sevgi Mah. Nevvar Salih İşgören Cad. Gaziemir, İzmir", "lat": 38.324, "lng": 27.135, "types": ["pil", "eatik", "yag", "ambalaj", "lastik", "metal"], "desc": "Havalimanı ve Serbest Bölge yakını tesis."}, {"id": 310, "name": "Urla Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Sırasöğütler Mah. Urla, İzmir", "lat": 38.321, "lng": 26.764, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "organik"], "desc": "Yarımada çevre koruma ve tarımsal kompost merkezi."}, {"id": 311, "name": "Çeşme Belediyesi Sıfır Atık Noktası", "address": "Musalla Mah. Çeşme, İzmir", "lat": 38.324, "lng": 26.305, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Turistik sezon ve yerel atık yönetimi."}, {"id": 401, "name": "Nilüfer Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Alaaddinbey Mah. 614. Sok. No:12 Nilüfer, Bursa", "lat": 40.1985, "lng": 28.9145, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj", "lastik", "hacimli", "metal", "aydinlatma", "organik"], "desc": "Modern entegre 1. Sınıf atık getirme tesisi."}, {"id": 402, "name": "Osmangazi Belediyesi Atık Getirme Merkezi", "address": "Demirtaş Dumlupınar Mah. Osmangazi, Bursa", "lat": 40.249, "lng": 29.076, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal"], "desc": "Hafta içi 08:30 - 17:30 arası açıktır."}, {"id": 403, "name": "Yıldırım Belediyesi Sıfır Atık Merkezi", "address": "Duaçınarı Mah. Ankara Yolu Cad. Yıldırım, Bursa", "lat": 40.191, "lng": 29.098, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "ilac"], "desc": "Ambalaj, elektronik ve tekstil atıkları."}, {"id": 404, "name": "İnegöl Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Akhisar Mah. İnegöl, Bursa", "lat": 40.102, "lng": 29.495, "types": ["pil", "eatik", "yag", "ambalaj", "hacimli", "metal", "lastik"], "desc": "Mobilya kenti atık kabul ve geri dönüşüm tesisi."}, {"id": 405, "name": "Gemlik Belediyesi Atık Getirme Merkezi", "address": "Hamidiye Mah. Gemlik, Bursa", "lat": 40.435, "lng": 29.155, "types": ["pil", "eatik", "yag", "ambalaj", "lastik"], "desc": "Liman ve ilçe atık yönetim tesisi."}, {"id": 406, "name": "Mudanya Belediyesi Sıfır Atık Noktası", "address": "Ömerbey Mah. Mudanya, Bursa", "lat": 40.375, "lng": 28.882, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Sahil şeridi atık kabul birimi."}, {"id": 501, "name": "Muratpaşa Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Sedir Mah. Gazi Bulvarı No:142 Muratpaşa, Antalya", "lat": 36.9065, "lng": 30.689, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj", "lastik", "hacimli", "metal", "aydinlatma"], "desc": "Çevreci Komşu Kart ana atık teslim tesisi."}, {"id": 502, "name": "Konyaaltı Belediyesi Atık Getirme Merkezi", "address": "Gürsu Mah. 304. Sok. Konyaaltı, Antalya", "lat": 36.8715, "lng": 30.627, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Sahil ve yerleşim alanları atık birimi."}, {"id": 503, "name": "Kepez Belediyesi Geri Dönüşüm Tesisi", "address": "Fevzi Çakmak Mah. Antalya Cad. Kepez, Antalya", "lat": 36.938, "lng": 30.702, "types": ["pil", "eatik", "yag", "ambalaj", "metal", "lastik"], "desc": "Kepez Sıfır Atık koordinasyon merkezi."}, {"id": 504, "name": "Alanya Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Oba Mah. Çarşamba Cad. Alanya, Antalya", "lat": 36.545, "lng": 32.032, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "hacimli"], "desc": "Turizm bölgesi çevre koruma tesisi."}, {"id": 505, "name": "Manavgat Belediyesi Sıfır Atık İstasyonu", "address": "Side Mah. Manavgat, Antalya", "lat": 36.785, "lng": 31.435, "types": ["pil", "eatik", "yag", "ambalaj", "cam", "tekstil"], "desc": "Side ve Manavgat geneli ambalaj ve atık yağ toplama."}, {"id": 506, "name": "Kaş Belediyesi Sıfır Atık Birimi", "address": "Andifli Mah. Kaş, Antalya", "lat": 36.201, "lng": 29.638, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Kıyı koruma ve atık geri dönüşüm istasyonu."}, {"id": 601, "name": "Tepebaşı Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Uluönder Mah. İsmet İnönü-2 Cad. No:20 Tepebaşı, Eskişehir", "lat": 39.794, "lng": 30.499, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj", "metal", "aydinlatma"], "desc": "Akıllı şehir Sıfır Atık tesisi."}, {"id": 602, "name": "Odunpazarı Belediyesi Atık Getirme Merkezi", "address": "71 Evler Mah. Dedeefendi Cad. Odunpazarı, Eskişehir", "lat": 39.743, "lng": 30.562, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "hacimli"], "desc": "Odunpazarı Çevre Koruma Birimi."}, {"id": 701, "name": "Selçuklu Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Sakarya Mah. Ahmet Kabaklı Cad. No:8 Selçuklu, Konya", "lat": 37.931, "lng": 32.502, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj", "metal", "lastik", "hacimli"], "desc": "Selçuklu Sıfır Atık Entegre Tesisi."}, {"id": 702, "name": "Meram Belediyesi Sıfır Atık Merkezi", "address": "Harmancık Mah. Meram, Konya", "lat": 37.834, "lng": 32.441, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Organik kompost ve ambalaj ayrıştırma."}, {"id": 703, "name": "Karatay Belediyesi Atık Getirme İstasyonu", "address": "Fevziçakmak Mah. Karatay, Konya", "lat": 37.882, "lng": 32.545, "types": ["pil", "eatik", "yag", "ambalaj", "metal"], "desc": "Sanayi ve evsel atık kabul istasyonu."}, {"id": 711, "name": "Melikgazi Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Eğribucak Mah. Melikgazi, Kayseri", "lat": 38.694, "lng": 35.461, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal", "hacimli"], "desc": "Kayseri Sıfır Atık Uygulama Tesisi."}, {"id": 712, "name": "Kocasinan Belediyesi Sıfır Atık Merkezi", "address": "Zümrüt Mah. Kocasinan, Kayseri", "lat": 38.745, "lng": 35.472, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Kocasinan Belediyesi Çevre Tesisleri."}, {"id": 713, "name": "Talas Belediyesi Atık Getirme Noktası", "address": "Yenidoğan Mah. Talas, Kayseri", "lat": 38.685, "lng": 35.552, "types": ["pil", "eatik", "yag", "ambalaj"], "desc": "Üniversite ve yurtlar bölgesi atık kabul birimi."}, {"id": 801, "name": "Seyhan Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Yeşilyurt Mah. Karaisalı Cad. No:45 Seyhan, Adana", "lat": 37.012, "lng": 35.295, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj", "metal", "lastik"], "desc": "Seyhan Belediyesi Atık Yönetim Tesisi."}, {"id": 802, "name": "Çukurova Belediyesi Atık Getirme Merkezi", "address": "Toros Mah. Barış Manço Bulvarı Çukurova, Adana", "lat": 37.045, "lng": 35.289, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "08:00 - 17:00 arası kabul yapılır."}, {"id": 803, "name": "Yüreğir Belediyesi Sıfır Atık Tesisi", "address": "Kazım Karabekir Mah. Yüreğir, Adana", "lat": 36.985, "lng": 35.342, "types": ["pil", "eatik", "yag", "ambalaj", "metal"], "desc": "Yüreğir geri dönüşüm istasyonu."}, {"id": 811, "name": "Yenişehir Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Bahçelievler Mah. 18. Cad. Yenişehir, Mersin", "lat": 36.789, "lng": 34.593, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "ilac", "metal"], "desc": "Mersin Yenişehir Sıfır Atık Toplama Tesisi."}, {"id": 812, "name": "Mezitli Belediyesi Atık Getirme İstasyonu", "address": "Viranşehir Mah. Mezitli, Mersin", "lat": 36.755, "lng": 34.542, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Sahil bölgesi ambalaj ve bitkisel yağ kabul."}, {"id": 813, "name": "Tarsus Belediyesi Sıfır Atık Merkezi", "address": "Kırklarsırtı Mah. Tarsus, Mersin", "lat": 36.924, "lng": 34.895, "types": ["pil", "eatik", "yag", "ambalaj", "lastik"], "desc": "Tarsus tarihi kent atık ayrıştırma."}, {"id": 821, "name": "İskenderun Belediyesi Atık Getirme Merkezi", "address": "Sakarya Mah. İskenderun, Hatay", "lat": 36.578, "lng": 36.168, "types": ["pil", "eatik", "yag", "ambalaj", "metal", "lastik"], "desc": "Liman ve kent atık yönetimi."}, {"id": 822, "name": "Antakya Belediyesi Sıfır Atık Birimi", "address": "Aksaray Mah. Antakya, Hatay", "lat": 36.215, "lng": 36.155, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Geri dönüşüm ve çevre koruma kabul alanı."}, {"id": 901, "name": "Şahinbey Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Mavikent Mah. Şahinbey, Gaziantep", "lat": 37.009, "lng": 37.351, "types": ["pil", "eatik", "yag", "tekstil", "ambalaj", "hacimli", "metal", "lastik"], "desc": "Şahinbey 1. Sınıf Atık Getirme Tesisi."}, {"id": 902, "name": "Şehitkamil Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "İpekyolu Mah. Şehitkamil, Gaziantep", "lat": 37.082, "lng": 37.399, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal"], "desc": "Sıfır Atık standartlarına tam uyumlu merkez."}, {"id": 1001, "name": "İzmit Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Yahyakaptan Mah. Hanedan Sok. İzmit, Kocaeli", "lat": 40.768, "lng": 29.972, "types": ["pil", "eatik", "yag", "tekstil", "ilac", "ambalaj", "metal", "aydinlatma"], "desc": "Kocaeli geneline hizmet veren modern tesis."}, {"id": 1002, "name": "Gebze Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Barış Mah. Koşuyolu Cad. Gebze, Kocaeli", "lat": 40.798, "lng": 29.431, "types": ["pil", "eatik", "yag", "ambalaj", "metal", "lastik", "hacimli"], "desc": "Sanayi kenti entegre geri dönüşüm sahası."}, {"id": 1003, "name": "Gölcük Belediyesi Atık Getirme İstasyonu", "address": "Donanma Mah. Gölcük, Kocaeli", "lat": 40.718, "lng": 29.824, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Donanma kenti çevre koruma birimi."}, {"id": 1011, "name": "Adapazarı Belediyesi Sıfır Atık Tesisi", "address": "Güllük Mah. Sağlık Cad. Adapazarı, Sakarya", "lat": 40.778, "lng": 30.402, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Adapazarı Temizlik İşleri İstasyonu."}, {"id": 1012, "name": "Serdivan Belediyesi Atık Getirme Merkezi", "address": "Arabacıalanı Mah. Serdivan, Sakarya", "lat": 40.765, "lng": 30.365, "types": ["pil", "eatik", "yag", "ambalaj", "eatik"], "desc": "Üniversite ve yerleşim alanları kabul merkezi."}, {"id": 1021, "name": "Yalova Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Bağlarbaşı Mah. Yalova", "lat": 40.655, "lng": 29.278, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "lastik"], "desc": "Yalova Sıfır Atık Tesisi."}, {"id": 1031, "name": "Düzce Belediyesi Atık Getirme Merkezi", "address": "Çamköy Mah. Düzce", "lat": 40.856, "lng": 31.175, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal"], "desc": "Düzce çevre koruma yerleşkesi."}, {"id": 1041, "name": "Bolu Belediyesi Sıfır Atık ve Kompost Tesisi", "address": "Karaköy Mah. Bolu", "lat": 40.732, "lng": 31.608, "types": ["pil", "eatik", "yag", "ambalaj", "organik", "hacimli"], "desc": "Doğa dostu kompost ve ambalaj geri kazanım."}, {"id": 1101, "name": "Atakum Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Küçükkolpınar Mah. 638. Sok. Atakum, Samsun", "lat": 41.312, "lng": 36.268, "types": ["pil", "eatik", "yag", "tekstil", "ambalaj", "metal", "lastik"], "desc": "Karadeniz sahil bölgesinin kapsamlı tesisi."}, {"id": 1102, "name": "İlkadım Belediyesi Sıfır Atık Merkezi", "address": "Derebahçe Mah. İlkadım, Samsun", "lat": 41.275, "lng": 36.331, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "İlkadım atık kabul ve ayrıştırma birimi."}, {"id": 1111, "name": "Ortahisar Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Akyazı Mah. Sahil Cad. Ortahisar, Trabzon", "lat": 41.001, "lng": 39.673, "types": ["pil", "eatik", "yag", "tekstil", "ambalaj", "eatik"], "desc": "Ortahisar Belediyesi Çevre Koruma İstasyonu."}, {"id": 1112, "name": "Akçaabat Belediyesi Atık Getirme Noktası", "address": "Dürbinar Mah. Akçaabat, Trabzon", "lat": 41.021, "lng": 39.575, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Sahil ve pazar atıkları kabulü."}, {"id": 1121, "name": "Altınordu Belediyesi Sıfır Atık Tesisi", "address": "Karşıyaka Mah. Altınordu, Ordu", "lat": 40.978, "lng": 37.882, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Ordu merkez atık ayrıştırma sahası."}, {"id": 1131, "name": "Giresun Belediyesi Atık Getirme Merkezi", "address": "Gedikkaya Mah. Giresun", "lat": 40.919, "lng": 38.411, "types": ["pil", "eatik", "yag", "ambalaj", "metal"], "desc": "Giresun Çevre Yönetim Merkezi."}, {"id": 1141, "name": "Rize Belediyesi Sıfır Atık İstasyonu", "address": "Engindere Mah. Rize", "lat": 41.025, "lng": 40.535, "types": ["pil", "eatik", "yag", "ambalaj", "organik"], "desc": "Çay atıkları ve evsel ambalaj ayrıştırma tesisi."}, {"id": 1151, "name": "Zonguldak Belediyesi Atık Getirme Merkezi", "address": "Mithatpaşa Mah. Zonguldak", "lat": 41.455, "lng": 31.792, "types": ["pil", "eatik", "yag", "ambalaj", "metal"], "desc": "Maden kenti katı atık ve ambalaj istasyonu."}, {"id": 1301, "name": "Pamukkale Belediyesi Atık Getirme Merkezi", "address": "Fevzi Çakmak Mah. Pamukkale, Denizli", "lat": 37.801, "lng": 29.112, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "ilac", "metal"], "desc": "Pamukkale Çevre Koruma Yerleşkesi."}, {"id": 1302, "name": "Merkezefendi Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Gümüşçay Mah. Merkezefendi, Denizli", "lat": 37.785, "lng": 29.062, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "hacimli"], "desc": "Merkezefendi Sıfır Atık Tesisi."}, {"id": 1311, "name": "Bodrum Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Konacık Mah. Gazideresi Cad. Bodrum, Muğla", "lat": 37.042, "lng": 27.391, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "lastik", "organik"], "desc": "Bodrum 1. Sınıf Atık Getirme ve Kompost Tesisi."}, {"id": 1312, "name": "Menteşe Belediyesi Atık Getirme Merkezi", "address": "Emirbeyazıt Mah. Menteşe, Muğla", "lat": 37.215, "lng": 28.365, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Muğla merkez atık toplama istasyonu."}, {"id": 1313, "name": "Fethiye Belediyesi Sıfır Atık Noktası", "address": "Taşyaka Mah. Ölüdeniz Cad. Fethiye, Muğla", "lat": 36.631, "lng": 29.135, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "cam"], "desc": "Turistik ambalaj ve cam atık toplama ünitesi."}, {"id": 1314, "name": "Marmaris Belediyesi Atık Toplama Tesisi", "address": "Armutalan Mah. Marmaris, Muğla", "lat": 36.855, "lng": 28.245, "types": ["pil", "eatik", "yag", "ambalaj", "organik"], "desc": "Marmaris sahil ve doğa koruma birimi."}, {"id": 1321, "name": "Karesi Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Kuvayi Milliye Mah. Karesi, Balıkesir", "lat": 39.664, "lng": 27.876, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "hacimli"], "desc": "Balıkesir Karesi Sıfır Atık Tesisi."}, {"id": 1322, "name": "Bandırma Belediyesi Atık Getirme İstasyonu", "address": "Paşabayır Mah. Bandırma, Balıkesir", "lat": 40.352, "lng": 27.971, "types": ["pil", "eatik", "yag", "ambalaj", "metal"], "desc": "Marmara kıyısı sanayi ve kent atık kabul."}, {"id": 1331, "name": "Çanakkale Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "İsmetpaşa Mah. Troya Cad. Çanakkale", "lat": 40.138, "lng": 26.415, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal", "ilac"], "desc": "Boğaz kıyısı Sıfır Atık yerleşkesi."}, {"id": 1341, "name": "Tekirdağ Süleymanpaşa Belediyesi Atık Getirme Tesisi", "address": "Hürriyet Mah. Süleymanpaşa, Tekirdağ", "lat": 40.985, "lng": 27.535, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Trakya kıyı atık ayrıştırma."}, {"id": 1342, "name": "Çorlu Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Şeyhsinan Mah. Çorlu, Tekirdağ", "lat": 41.158, "lng": 27.802, "types": ["pil", "eatik", "yag", "ambalaj", "metal", "lastik", "hacimli"], "desc": "Trakya sanayi bölgesinin ana atık merkezi."}, {"id": 1351, "name": "Edirne Belediyesi Sıfır Atık Merkezi", "address": "Şükrüpaşa Mah. Edirne", "lat": 41.675, "lng": 26.568, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Sınır kenti çevre yönetim istasyonu."}, {"id": 1361, "name": "Yunusemre Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Güzelyurt Mah. Yunusemre, Manisa", "lat": 38.625, "lng": 27.395, "types": ["pil", "eatik", "yag", "ambalaj", "metal", "hacimli"], "desc": "Manisa Sıfır Atık kabul tesisi."}, {"id": 1371, "name": "Efeler Belediyesi Atık Getirme Merkezi", "address": "Ata Mah. Doğu Aydın Bulvarı Efeler, Aydın", "lat": 37.838, "lng": 27.855, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal"], "desc": "Aydın merkez atık kabul birimi."}, {"id": 1372, "name": "Kuşadası Belediyesi Sıfır Atık Noktası", "address": "Türkmen Mah. Kuşadası, Aydın", "lat": 37.862, "lng": 27.262, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Liman ve turistik atık toplama noktası."}, {"id": 1401, "name": "Kayapınar Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Pirinçlik Mah. Urfa Yolu Üzeri Kayapınar, Diyarbakır", "lat": 37.936, "lng": 40.162, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal"], "desc": "Diyarbakır Sıfır Atık Entegre Atık Tesisi."}, {"id": 1402, "name": "Bağlar Belediyesi Sıfır Atık Merkezi", "address": "Bağcılar Mah. Bağlar, Diyarbakır", "lat": 37.915, "lng": 40.185, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Diyarbakır kentsel atık kabul istasyonu."}, {"id": 1411, "name": "Haliliye Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Sancaktar Mah. Haliliye, Şanlıurfa", "lat": 37.168, "lng": 38.805, "types": ["pil", "eatik", "yag", "ambalaj", "metal", "lastik"], "desc": "Şanlıurfa Sıfır Atık Entegre Tesisi."}, {"id": 1412, "name": "Karaköprü Belediyesi Atık Getirme İstasyonu", "address": "Doğukent Mah. Karaköprü, Şanlıurfa", "lat": 37.215, "lng": 38.795, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Ambalaj ve elektronik eşya kabul noktası."}, {"id": 1421, "name": "Yakutiye Belediyesi Sıfır Atık Noktası", "address": "Muratpaşa Mah. Ali Ravi Cad. Yakutiye, Erzurum", "lat": 39.908, "lng": 41.274, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Erzurum Merkez Sıfır Atık Toplama Ünitesi."}, {"id": 1422, "name": "Palandöken Belediyesi Atık Getirme Merkezi", "address": "Hüseyin Avni Ulaş Mah. Palandöken, Erzurum", "lat": 39.875, "lng": 41.258, "types": ["pil", "eatik", "yag", "ambalaj", "metal"], "desc": "Kış sporları ve yerleşim alanları atık tesisi."}, {"id": 1431, "name": "Battalgazi Belediyesi Sıfır Atık Tesisi", "address": "Alacakapı Mah. Battalgazi, Malatya", "lat": 38.358, "lng": 38.368, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal"], "desc": "Malatya Sıfır Atık kabul istasyonu."}, {"id": 1432, "name": "Yeşilyurt Belediyesi Atık Getirme Merkezi", "address": "Görgü Mah. Yeşilyurt, Malatya", "lat": 38.332, "lng": 38.252, "types": ["pil", "eatik", "yag", "ambalaj", "organik"], "desc": "Tarımsal ve evsel ayrıştırma sahası."}, {"id": 1441, "name": "Elazığ Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Doğukent Mah. Elazığ", "lat": 38.675, "lng": 39.245, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal", "lastik"], "desc": "Elazığ Sıfır Atık Entegre Tesisi."}, {"id": 1451, "name": "İpekyolu Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Bostaniçi Mah. İpekyolu, Van", "lat": 38.512, "lng": 43.415, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal"], "desc": "Van Gölü havzası çevre koruma tesisi."}, {"id": 1461, "name": "Artuklu Belediyesi Sıfır Atık İstasyonu", "address": "13 Mart Mah. Artuklu, Mardin", "lat": 37.318, "lng": 40.735, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil"], "desc": "Mardin tarihi ve yeni yerleşim atık kabulü."}, {"id": 1471, "name": "Sivas Belediyesi 1. Sınıf Atık Getirme Merkezi", "address": "Kılavuz Mah. Sivas", "lat": 39.735, "lng": 37.035, "types": ["pil", "eatik", "yag", "ambalaj", "metal", "lastik", "hacimli"], "desc": "Sivas Sıfır Atık ve geri dönüşüm tesisi."}, {"id": 1481, "name": "Batman Belediyesi Atık Getirme Merkezi", "address": "Gültepe Mah. Batman", "lat": 37.892, "lng": 41.135, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal"], "desc": "Batman Çevre Koruma İstasyonu."}, {"id": 1491, "name": "Kahramanmaraş Onikişubat Belediyesi Atık Getirme Merkezi", "address": "Cumhuriyet Mah. Onikişubat, Kahramanmaraş", "lat": 37.585, "lng": 36.885, "types": ["pil", "eatik", "yag", "ambalaj", "tekstil", "metal"], "desc": "Onikişubat Sıfır Atık Toplama Tesisi."}];
 
     /* =====================================================================
-       3) TÜRKİYE SINIRLARI VE UYGULAMA DURUMU
+       3) TÜRKİYE DIŞI BUĞULU/KARARTMALI MASKE GEOMETRİSİ
        ===================================================================== */
-    // Türkiye coğrafi sınırları (Güneybatı - Kuzeydoğu)
+    const TURKEY_MASK = {"type": "Polygon", "coordinates": [[[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]], [[25.97002, 40.136328], [25.740234, 40.105469], [25.668945, 40.135889], [25.740918, 40.196289], [25.874805, 40.233691], [25.918359, 40.237988], [25.977051, 40.177832], [25.97002, 40.136328]], [[41.510059, 41.51748], [41.576563, 41.497314], [41.701758, 41.471582], [41.779395, 41.440527], [41.823535, 41.432373], [41.925781, 41.495654], [42.077734, 41.494092], [42.211133, 41.486719], [42.27998, 41.475], [42.364355, 41.454004], [42.466406, 41.439844], [42.50791, 41.470068], [42.567383, 41.559277], [42.59043, 41.570703], [42.606836, 41.578809], [42.682422, 41.585742], [42.754102, 41.578906], [42.787891, 41.563721], [42.82168, 41.492383], [42.906738, 41.466846], [43.057129, 41.352832], [43.149023, 41.307129], [43.171289, 41.287939], [43.141016, 41.264844], [43.152832, 41.236426], [43.205469, 41.19917], [43.279297, 41.185205], [43.358984, 41.190137], [43.402344, 41.176562], [43.433398, 41.155518], [43.441602, 41.125977], [43.439453, 41.107129], [43.455273, 41.064697], [43.51748, 41.004834], [43.591699, 40.968213], [43.631641, 40.929004], [43.696484, 40.794141], [43.722656, 40.719531], [43.712891, 40.647754], [43.667871, 40.574072], [43.569336, 40.482373], [43.59375, 40.444043], [43.61582, 40.393311], [43.608398, 40.356592], [43.678125, 40.239307], [43.709863, 40.166504], [43.683301, 40.149658], [43.666211, 40.126367], [43.791699, 40.070264], [43.941992, 40.023145], [44.005371, 40.014111], [44.178027, 40.035742], [44.289258, 40.040381], [44.399609, 39.995752], [44.560449, 39.887598], [44.733789, 39.746484], [44.768262, 39.703516], [44.783398, 39.684668], [44.817188, 39.650439], [44.782129, 39.651074], [44.725, 39.681738], [44.587109, 39.768555], [44.516699, 39.73125], [44.455957, 39.666748], [44.389355, 39.422119], [44.335449, 39.396045], [44.24043, 39.396777], [44.124023, 39.405225], [44.043945, 39.392969], [44.023242, 39.377441], [44.033789, 39.351025], [44.05752, 39.31084], [44.074316, 39.259961], [44.079102, 39.218311], [44.121289, 39.180615], [44.178027, 39.144824], [44.180566, 39.108057], [44.171875, 39.05625], [44.158789, 39.016748], [44.144531, 38.994385], [44.170801, 38.934375], [44.232422, 38.863232], [44.27168, 38.836035], [44.257031, 38.700635], [44.280176, 38.640674], [44.297852, 38.557812], [44.29082, 38.420117], [44.298535, 38.386279], [44.319629, 38.374707], [44.375781, 38.36958], [44.430859, 38.356787], [44.449902, 38.334229], [44.449609, 38.317773], [44.380859, 38.25459], [44.372754, 38.209717], [44.348926, 38.146484], [44.329395, 38.109277], [44.267969, 38.038818], [44.228906, 37.967187], [44.211328, 37.908057], [44.222949, 37.880176], [44.33623, 37.871777], [44.397754, 37.829248], [44.56123, 37.744629], [44.589941, 37.710352], [44.545313, 37.658154], [44.546094, 37.636328], [44.567188, 37.608643], [44.577148, 37.560205], [44.573145, 37.506396], [44.574023, 37.4354], [44.604102, 37.42373], [44.715137, 37.357129], [44.794141, 37.290381], [44.796777, 37.269775], [44.758301, 37.21709], [44.766699, 37.156348], [44.765137, 37.142432], [44.730957, 37.165283], [44.669336, 37.173584], [44.605957, 37.176025], [44.566016, 37.158252], [44.495996, 37.110547], [44.401953, 37.058496], [44.325586, 37.010742], [44.281836, 36.978027], [44.245703, 36.983301], [44.21748, 37.011865], [44.20166, 37.051807], [44.208398, 37.202637], [44.191797, 37.249854], [44.15625, 37.282959], [44.114453, 37.301855], [44.064648, 37.312451], [44.013184, 37.313525], [43.940039, 37.269287], [43.836426, 37.223535], [43.675781, 37.227246], [43.567969, 37.23584], [43.51582, 37.244531], [43.306738, 37.314648], [43.263086, 37.316504], [43.185156, 37.344873], [43.09248, 37.367383], [42.936621, 37.324756], [42.869141, 37.334912], [42.774609, 37.371875], [42.741113, 37.361914], [42.635449, 37.249268], [42.455859, 37.128711], [42.358984, 37.108594], [42.312891, 37.22959], [42.268555, 37.276562], [42.247559, 37.282227], [42.202734, 37.297266], [42.167871, 37.288623], [42.059863, 37.206055], [41.886816, 37.156396], [41.743555, 37.126123], [41.515527, 37.08916], [41.339551, 37.070801], [41.264648, 37.069336], [41.102148, 37.085889], [40.958887, 37.10918], [40.815625, 37.108154], [40.705664, 37.097705], [40.450391, 37.008887], [40.016406, 36.826074], [39.686523, 36.738623], [39.501465, 36.702246], [39.356641, 36.681592], [39.108398, 36.680566], [38.906445, 36.694678], [38.766602, 36.693115], [38.688867, 36.715088], [38.578027, 36.789111], [38.44375, 36.862256], [38.383984, 36.879248], [38.305859, 36.893359], [38.191699, 36.901562], [37.906641, 36.794629], [37.817969, 36.765576], [37.720313, 36.743701], [37.523535, 36.67832], [37.436328, 36.643311], [37.327051, 36.646582], [37.187402, 36.655908], [37.066211, 36.652637], [36.985352, 36.702393], [36.941797, 36.758398], [36.776563, 36.792676], [36.658594, 36.802539], [36.628418, 36.777686], [36.596875, 36.701367], [36.54668, 36.506348], [36.5375, 36.457422], [36.641406, 36.263525], [36.636719, 36.233984], [36.562402, 36.223926], [36.477051, 36.220703], [36.421484, 36.203467], [36.375391, 36.17124], [36.347559, 36.003516], [36.248828, 35.972705], [36.201953, 35.937549], [36.153613, 35.833887], [36.127344, 35.831445], [35.967578, 35.910059], [35.892676, 35.916553], [35.956934, 35.998145], [35.887109, 36.159082], [35.810938, 36.309863], [35.882812, 36.406348], [36.031738, 36.522705], [36.188477, 36.658984], [36.188184, 36.743066], [36.180078, 36.807227], [36.135156, 36.851611], [36.048926, 36.910596], [35.90459, 36.847607], [35.801563, 36.778076], [35.734277, 36.763965], [35.661133, 36.724316], [35.625586, 36.652783], [35.537402, 36.597021], [35.393164, 36.575195], [35.176172, 36.634863], [34.943164, 36.725684], [34.81123, 36.799268], [34.703613, 36.816797], [34.601367, 36.784473], [34.299609, 36.604199], [34.023438, 36.340771], [33.954883, 36.295215], [33.694727, 36.181982], [33.522754, 36.143994], [33.441797, 36.152832], [33.099512, 36.102979], [32.929492, 36.095703], [32.794824, 36.035889], [32.533789, 36.100732], [32.377734, 36.183643], [32.283789, 36.267871], [32.130566, 36.449121], [32.021973, 36.535303], [31.77793, 36.612793], [31.352539, 36.801074], [31.240625, 36.821729], [30.950293, 36.848682], [30.644043, 36.865674], [30.582031, 36.797168], [30.558496, 36.52583], [30.506055, 36.451123], [30.483594, 36.3104], [30.446094, 36.269873], [30.387305, 36.243262], [30.29541, 36.287695], [30.231641, 36.307324], [30.083203, 36.249365], [29.789258, 36.168066], [29.689063, 36.156689], [29.34834, 36.258838], [29.223633, 36.324463], [29.143262, 36.397217], [29.116113, 36.520117], [29.065527, 36.590088], [29.058105, 36.638135], [29.038281, 36.693457], [28.969629, 36.715332], [28.895898, 36.673584], [28.816895, 36.675293], [28.717676, 36.700879], [28.483594, 36.803809], [28.303711, 36.811963], [28.195605, 36.686328], [28.111523, 36.646387], [28.019434, 36.634473], [28.01416, 36.670215], [28.083984, 36.751465], [27.803809, 36.736475], [27.655859, 36.674609], [27.54043, 36.684229], [27.453906, 36.712158], [27.466895, 36.746338], [27.554688, 36.758887], [27.630859, 36.78667], [27.934473, 36.809277], [28.005371, 36.831982], [28.083008, 36.920264], [28.224414, 36.996387], [28.242383, 37.029053], [28.133691, 37.029492], [27.668359, 37.007422], [27.348926, 37.01958], [27.311035, 36.981885], [27.262988, 36.976562], [27.249707, 37.07915], [27.300195, 37.126855], [27.368164, 37.122412], [27.535059, 37.163867], [27.520117, 37.249121], [27.400586, 37.306738], [27.37627, 37.340723], [27.289551, 37.348682], [27.219238, 37.38916], [27.203906, 37.491406], [27.147949, 37.603613], [27.067969, 37.65791], [27.077832, 37.687695], [27.224414, 37.725439], [27.254785, 37.882324], [27.232422, 37.978662], [27.158691, 37.986865], [26.943848, 38.062891], [26.878613, 38.054785], [26.807422, 38.13833], [26.682813, 38.19834], [26.621094, 38.176367], [26.582422, 38.149268], [26.524707, 38.162256], [26.42793, 38.214355], [26.33291, 38.24248], [26.290723, 38.277197], [26.343652, 38.370068], [26.416406, 38.367871], [26.429688, 38.440625], [26.372266, 38.561914], [26.377832, 38.62417], [26.441309, 38.641211], [26.513574, 38.629492], [26.586523, 38.557031], [26.610352, 38.486914], [26.59502, 38.418604], [26.641309, 38.352441], [26.674219, 38.335742], [26.696387, 38.405371], [26.727344, 38.418604], [26.769922, 38.388184], [26.861426, 38.372949], [27.098633, 38.415723], [27.144238, 38.451953], [26.97041, 38.447852], [26.906836, 38.481738], [26.837793, 38.557568], [26.795313, 38.626416], [26.787695, 38.660205], [26.763672, 38.709619], [26.790137, 38.736084], [26.90918, 38.775781], [27.013672, 38.886865], [26.970117, 38.919043], [26.920313, 38.934229], [26.866211, 38.922949], [26.814941, 38.960986], [26.808301, 39.013916], [26.849316, 39.056738], [26.853613, 39.115625], [26.719336, 39.260645], [26.681836, 39.292236], [26.710742, 39.339648], [26.813281, 39.419043], [26.910938, 39.517334], [26.899219, 39.549658], [26.827051, 39.562891], [26.484082, 39.520703], [26.350781, 39.484082], [26.113086, 39.467383], [26.095996, 39.520801], [26.101367, 39.568945], [26.154688, 39.656641], [26.149805, 39.872852], [26.181348, 39.990088], [26.313379, 40.025], [26.475391, 40.197266], [26.738086, 40.400244], [27.012109, 40.396338], [27.12168, 40.452344], [27.28457, 40.455615], [27.31416, 40.414893], [27.332617, 40.375928], [27.475586, 40.319922], [27.728027, 40.328809], [27.789355, 40.350879], [27.848535, 40.381738], [27.731836, 40.481494], [27.769141, 40.509619], [27.874902, 40.512939], [27.989551, 40.489453], [27.994824, 40.466602], [27.964355, 40.435303], [27.928906, 40.38042], [27.962598, 40.369873], [28.289062, 40.403027], [28.630273, 40.376465], [28.738867, 40.390869], [29.007129, 40.389746], [29.055176, 40.42417], [28.974023, 40.467383], [28.894629, 40.482422], [28.841211, 40.503467], [28.787891, 40.534033], [28.958008, 40.630566], [29.054102, 40.649121], [29.507617, 40.708398], [29.844922, 40.738086], [29.849219, 40.760107], [29.800586, 40.760156], [29.364746, 40.809277], [29.259766, 40.847314], [29.113867, 40.937842], [29.082227, 40.963428], [29.045508, 41.007568], [29.067383, 41.10166], [29.094336, 41.177246], [29.148145, 41.221045], [29.322266, 41.227734], [29.919336, 41.15083], [30.344922, 41.196924], [30.810059, 41.084863], [31.254883, 41.107617], [31.34668, 41.15791], [31.458008, 41.32002], [32.086426, 41.589209], [32.306445, 41.72959], [32.542188, 41.806396], [32.94668, 41.891748], [33.284766, 42.00459], [33.381348, 42.017578], [34.192969, 41.963672], [34.750488, 41.956836], [35.006445, 42.063281], [35.154883, 42.027539], [35.141016, 41.989502], [35.114063, 41.956982], [35.12207, 41.891113], [35.20918, 41.794385], [35.297754, 41.728516], [35.558008, 41.634033], [35.919824, 41.713721], [35.978125, 41.704834], [36.051758, 41.682568], [36.179199, 41.426562], [36.278418, 41.336133], [36.405371, 41.274609], [36.509668, 41.2625], [36.587109, 41.32666], [36.64707, 41.352539], [36.777734, 41.363477], [36.991992, 41.275391], [37.066211, 41.184424], [37.430957, 41.114111], [37.765625, 41.078906], [37.910059, 41.001904], [38.381055, 40.924512], [38.556934, 40.936523], [38.852148, 41.017676], [39.426367, 41.106445], [39.80791, 40.98252], [39.911133, 40.966455], [40.000195, 40.977148], [40.128418, 40.943018], [40.265234, 40.961328], [40.6875, 41.107422], [40.819531, 41.190234], [40.959473, 41.211621], [41.083594, 41.261182], [41.414355, 41.423633], [41.510059, 41.51748]], [[28.014453, 41.969043], [27.987305, 41.854883], [28.050293, 41.72915], [28.197852, 41.554492], [28.346387, 41.466357], [28.946777, 41.248389], [29.057227, 41.229736], [29.032129, 41.140479], [28.995996, 41.061133], [28.95625, 41.008203], [28.780371, 40.97417], [28.294922, 41.071484], [28.172168, 41.080713], [28.085547, 41.061328], [27.925195, 40.990576], [27.747363, 41.013281], [27.499414, 40.973145], [27.430176, 40.839941], [27.258008, 40.687354], [26.974609, 40.564014], [26.77207, 40.498047], [26.467969, 40.261475], [26.32998, 40.123389], [26.271777, 40.096582], [26.202734, 40.075391], [26.225977, 40.141699], [26.260156, 40.202393], [26.252344, 40.248145], [26.253809, 40.314697], [26.355273, 40.390234], [26.447461, 40.44502], [26.720313, 40.544238], [26.79209, 40.626611], [26.578125, 40.624658], [26.360938, 40.606348], [26.224219, 40.618066], [26.105469, 40.611328], [26.067773, 40.683398], [26.038965, 40.726758], [26.069727, 40.740283], [26.10918, 40.749658], [26.178906, 40.826514], [26.241211, 40.883203], [26.331055, 40.954492], [26.354102, 40.99707], [26.354102, 41.036768], [26.332617, 41.064307], [26.328418, 41.097021], [26.325684, 41.143262], [26.330664, 41.23877], [26.536426, 41.343115], [26.602344, 41.35415], [26.624902, 41.401758], [26.609766, 41.512158], [26.581348, 41.60127], [26.544531, 41.607227], [26.49502, 41.633252], [26.4625, 41.663379], [26.410547, 41.696338], [26.320898, 41.716553], [26.317969, 41.744678], [26.327246, 41.772803], [26.360352, 41.801562], [26.511426, 41.826367], [26.529297, 41.84668], [26.549707, 41.896729], [26.579688, 41.947949], [26.615332, 41.964893], [26.679199, 41.96333], [26.800391, 41.975146], [26.884863, 41.991846], [26.96875, 42.026855], [27.011719, 42.058643], [27.193359, 42.0771], [27.244336, 42.093262], [27.294922, 42.079541], [27.362891, 42.025049], [27.474805, 41.946875], [27.534863, 41.920801], [27.579883, 41.93291], [27.661133, 41.961328], [27.738867, 41.961523], [27.80166, 41.956543], [27.831934, 41.981299], [27.879199, 41.986621], [28.014453, 41.969043]]]};
+
+    /* =====================================================================
+       4) TÜRKİYE SINIRLARI VE UYGULAMA DURUMU
+       ===================================================================== */
     const TURKEY_BOUNDS = [
-      [35.6, 25.4], // Güneybatı köşesi
-      [42.6, 44.9]  // Kuzeydoğu köşesi
+      [35.6, 25.4], // Güneybatı
+      [42.6, 44.9]  // Kuzeydoğu
     ];
     const TURKEY_CENTER = { lat: 39.1, lng: 35.3 }; // Türkiye coğrafi merkezi
 
@@ -296,10 +279,10 @@
       pickMode: false,
       pickedLatLng: null
     };
-    let map, markerLayer, userMarker, pickMarker;
+    let map, markerLayer, maskLayer, userMarker, pickMarker;
 
     /* =====================================================================
-       4) YARDIMCI FONKSİYONLAR
+       5) YARDIMCI FONKSİYONLAR
        ===================================================================== */
     function distanceKm(a, b) {
       const R = 6371, toRad = d => d * Math.PI / 180;
@@ -317,7 +300,11 @@
     function allPoints() {
       return [...REAL_POINTS, ...state.userSuggestions.map(p => ({ ...p, pending: true }))];
     }
-    // Filtre + arama + mesafeye göre sıralama
+    function updateTotalCountBadge() {
+      const total = allPoints().length;
+      const el = document.getElementById('headerCountNum');
+      if (el) el.textContent = total;
+    }
     function filteredPoints() {
       const q = state.query.trim().toLocaleLowerCase('tr');
       return allPoints()
@@ -331,7 +318,7 @@
     }
 
     /* =====================================================================
-       5) FİLTRE BUTONLARI ("Hepsi" Butonu + Tüm Kategoriler)
+       6) FİLTRE BUTONLARI ("Hepsi" Butonu + Tüm Kategoriler)
        ===================================================================== */
     function renderFilters() {
       const bar = document.getElementById('filterBar');
@@ -349,7 +336,7 @@
     }
 
     /* =====================================================================
-       6) HARİTA (TÜRKİYE'YE KİLİTLİ, DIŞARI ÇIKMAYAN HARİTA)
+       7) HARİTA (TÜRKİYE'YE KİLİTLİ, DIŞI BUĞULU/MASKELİ)
        ===================================================================== */
     function makeIcon(p) {
       const key = state.activeType !== 'all' && p.types.includes(state.activeType) ? state.activeType : (p.types[0] || 'ambalaj');
@@ -369,7 +356,7 @@
 
       return `
         <div style="min-width:230px;max-width:300px;font-family:Inter,sans-serif">
-          ${p.pending ? '<div style="font-size:11px;font-weight:700;color:#d97706;margin-bottom:4px">⏳ Onay Bekliyor (Vatandaş Önerisi)</div>' : '<div style="font-size:11px;font-weight:700;color:#059669;margin-bottom:3px">🏛️ Resmi Atık Kabul Noktası</div>'}
+          ${p.pending ? '<div style="font-size:11px;font-weight:700;color:#d97706;margin-bottom:4px">⏳ Onay Bekliyor (Vatandaş Önerisi)</div>' : '<div style="font-size:11px;font-weight:700;color:#059669;margin-bottom:3px">🏛️ Resmi 1. Sınıf Tesis</div>'}
           <div style="font-weight:800;font-size:13.5px;margin-bottom:3px;line-height:1.25">${escapeHtml(p.name)}</div>
           <div style="font-size:11.5px;opacity:.8;margin-bottom:5px">📍 ${escapeHtml(p.address || 'Adres belirtilmedi')}</div>
           ${p.desc ? `<div style="font-size:11px;background:#f3f4f6;color:#374151;padding:5px 8px;border-radius:8px;margin-bottom:6px;line-height:1.35">${escapeHtml(p.desc)}</div>` : ''}
@@ -381,7 +368,6 @@
     }
 
     function initMap() {
-      // Harita Türkiye sınırlarına kilitlenir: dışarı kaydırmayı engeller (maxBoundsViscosity: 1.0)
       map = L.map('map', {
         zoomControl: true,
         maxBounds: TURKEY_BOUNDS,
@@ -396,12 +382,24 @@
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
       }).addTo(map);
 
+      // Türkiye dışı buğu / maskeleme katmanı
+      maskLayer = L.geoJSON(TURKEY_MASK, {
+        style: {
+          fillColor: '#0b1329',
+          fillOpacity: 0.65,
+          color: '#10b981',
+          weight: 2.2,
+          opacity: 0.95,
+          className: 'turkey-mask-polygon'
+        },
+        interactive: false
+      }).addTo(map);
+
       markerLayer = L.layerGroup().addTo(map);
 
       // "Haritadan Seç" modunda tıklanan yeri al
       map.on('click', e => {
         if (!state.pickMode) return;
-        // Tıklanan konum Türkiye sınırları içinde mi?
         const lat = e.latlng.lat, lng = e.latlng.lng;
         if (lat < TURKEY_BOUNDS[0][0] || lat > TURKEY_BOUNDS[1][0] || lng < TURKEY_BOUNDS[0][1] || lng > TURKEY_BOUNDS[1][1]) {
           toast('Lütfen Türkiye sınırları içinde bir konum seçin.');
@@ -427,11 +425,64 @@
       markerLayer.eachLayer(m => {
         if (m._pid == id) { map.setView(m.getLatLng(), 15); m.openPopup(); }
       });
-      if (window.innerWidth < 1024) document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+      if (window.innerWidth < 1024) document.getElementById('mapWrapper').scrollIntoView({ behavior: 'smooth' });
     }
 
     /* =====================================================================
-       7) LİSTE
+       8) TAM EKRAN YÖNETİMİ
+       ===================================================================== */
+    function isFullscreenActive() {
+      const mapWrapper = document.getElementById('mapWrapper');
+      return !!(document.fullscreenElement || document.webkitFullscreenElement || mapWrapper.classList.contains('is-fullscreen-fallback'));
+    }
+
+    function updateFullscreenUi() {
+      const isFs = isFullscreenActive();
+      document.getElementById('fsIcon').textContent = isFs ? '✕' : '⛶';
+      document.getElementById('fsText').textContent = isFs ? 'Küçült' : 'Tam Ekran';
+      setTimeout(() => map && map.invalidateSize(), 150);
+    }
+
+    function initFullscreen() {
+      const mapWrapper = document.getElementById('mapWrapper');
+      const fsBtn = document.getElementById('fullscreenBtn');
+
+      function enableFallback() {
+        mapWrapper.classList.add('is-fullscreen-fallback');
+        document.body.classList.add('overflow-hidden');
+        updateFullscreenUi();
+      }
+      function disableFallback() {
+        mapWrapper.classList.remove('is-fullscreen-fallback');
+        document.body.classList.remove('overflow-hidden');
+        updateFullscreenUi();
+      }
+
+      fsBtn.addEventListener('click', () => {
+        if (!isFullscreenActive()) {
+          if (mapWrapper.requestFullscreen) {
+            mapWrapper.requestFullscreen().catch(() => enableFallback());
+          } else if (mapWrapper.webkitRequestFullscreen) {
+            mapWrapper.webkitRequestFullscreen();
+          } else {
+            enableFallback();
+          }
+        } else {
+          if (document.fullscreenElement || document.webkitFullscreenElement) {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+          } else {
+            disableFallback();
+          }
+        }
+      });
+
+      document.addEventListener('fullscreenchange', updateFullscreenUi);
+      document.addEventListener('webkitfullscreenchange', updateFullscreenUi);
+    }
+
+    /* =====================================================================
+       9) LİSTE
        ===================================================================== */
     function renderList(points) {
       const list = document.getElementById('pointList');
@@ -469,16 +520,16 @@
       const pts = filteredPoints();
       renderMarkers(pts);
       renderList(pts);
+      updateTotalCountBadge();
     }
 
     /* =====================================================================
-       8) KONUM BULUCU
+       10) KONUM BULUCU
        ===================================================================== */
     function locateUser(showMsg) {
       if (!navigator.geolocation) { if (showMsg) toast('Tarayıcın konum özelliğini desteklemiyor.'); return; }
       navigator.geolocation.getCurrentPosition(pos => {
         const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
-        // Türkiye sınırları içinde mi?
         if (uLat >= TURKEY_BOUNDS[0][0] && uLat <= TURKEY_BOUNDS[1][0] && uLng >= TURKEY_BOUNDS[0][1] && uLng <= TURKEY_BOUNDS[1][1]) {
           state.origin = { lat: uLat, lng: uLng };
           state.hasUserLocation = true;
@@ -498,7 +549,7 @@
     }
 
     /* =====================================================================
-       9) YENİ NOKTA BİLDİR MODALI
+       11) YENİ NOKTA BİLDİR MODALI
        ===================================================================== */
     const modal = document.getElementById('suggestModal');
     function openModal() { modal.classList.remove('hidden'); }
@@ -537,7 +588,7 @@
         state.pickMode = true;
         closeModal();
         document.getElementById('pickHint').classList.remove('hidden');
-        document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('mapWrapper').scrollIntoView({ behavior: 'smooth' });
       });
 
       document.getElementById('suggestForm').addEventListener('submit', e => {
@@ -566,7 +617,7 @@
     }
 
     /* =====================================================================
-       10) TEMA (KARANLIK / AYDINLIK)
+       12) TEMA (KARANLIK / AYDINLIK)
        ===================================================================== */
     function applyTheme(dark) {
       document.documentElement.classList.toggle('dark', dark);
@@ -575,7 +626,7 @@
     }
 
     /* =====================================================================
-       11) BAŞLATMA
+       13) BAŞLATMA
        ===================================================================== */
     document.addEventListener('DOMContentLoaded', () => {
       const saved = localStorage.getItem('pirtil_theme');
@@ -583,6 +634,7 @@
       document.getElementById('themeToggle').addEventListener('click', () => applyTheme(!document.documentElement.classList.contains('dark')));
 
       initMap();
+      initFullscreen();
       renderFilters();
       renderTypeCheckboxes();
       bindModal();
@@ -590,7 +642,7 @@
 
       document.getElementById('searchInput').addEventListener('input', e => { state.query = e.target.value; renderAll(); });
       document.getElementById('locateBtn').addEventListener('click', () => locateUser(true));
-      locateUser(false); // Açılışta izin istenir; yoksa Türkiye genelinde kalır
+      locateUser(false);
     });
   </script>
 </body>
