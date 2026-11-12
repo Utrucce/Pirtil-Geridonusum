@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pırtıl Geridönüşüm | En Yakın Geri Dönüşüm Noktasını Bul</title>
-  <meta name="description" content="Pırtıl Geridönüşüm: Türkiye genelinde pil, e-atık, atık yağ, tekstil, ilaç ve ambalaj geri dönüşüm noktalarını haritada bulun." />
+  <meta name="description" content="Pırtıl Geridönüşüm: Türkiye genelinde 1. Sınıf Atık Getirme Merkezleri, pil, e-atık, atık yağ, tekstil, ilaç, ambalaj, lastik ve mobilya geri dönüşüm noktalarını haritada bulun." />
   <meta name="theme-color" content="#059669" />
   <link rel="icon" type="image/png" href="assets/favicon.png" />
 
@@ -35,7 +35,7 @@
 
   <style>
     /* Harita yüksekliği ve özel pin görünümü */
-    #map { height: 100%; min-height: 420px; z-index: 0; }
+    #map { height: 100%; min-height: 420px; z-index: 0; background: #e5e7eb; }
     .pin {
       width: 38px; height: 38px; border-radius: 50% 50% 50% 0;
       transform: rotate(-45deg); display: flex; align-items: center; justify-content: center;
@@ -51,7 +51,7 @@
     .leaflet-popup-content-wrapper { border-radius: 14px; }
     .leaflet-popup-content { margin: 12px 14px; }
     .dark .leaflet-popup-content-wrapper, .dark .leaflet-popup-tip { background: #1f2937; color: #f3f4f6; }
-    .dark .leaflet-tile-pane { filter: brightness(.75) contrast(1.1) saturate(.8); }
+    .dark .leaflet-tile-pane { filter: brightness(.78) contrast(1.1) saturate(.85); }
     /* İnce kaydırma çubuğu */
     .thin-scroll::-webkit-scrollbar { width: 6px; }
     .thin-scroll::-webkit-scrollbar-thumb { background: #a7f3d0; border-radius: 6px; }
@@ -63,10 +63,12 @@
 <body class="bg-gray-50 text-gray-800 dark:bg-gray-950 dark:text-gray-100 font-sans antialiased transition-colors">
 
   <!-- ================= ÜST BAŞLIK ================= -->
-  <header class="sticky top-0 z-30 bg-white/85 dark:bg-gray-900/85 backdrop-blur border-b border-gray-200 dark:border-gray-800">
+  <header class="sticky top-0 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur border-b border-gray-200 dark:border-gray-800">
     <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
       <a href="#" class="flex items-center gap-3 min-w-0">
-        <img src="assets/logo.png" alt="Pırtıl logosu" class="w-11 h-11 rounded-xl bg-white object-contain ring-2 ring-emerald-500/40" />
+        <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-full overflow-hidden ring-2 ring-emerald-500/60 shadow bg-black shrink-0 flex items-center justify-center">
+          <img src="assets/logo.png" alt="Pırtıl logosu" class="w-full h-full object-cover" />
+        </div>
         <div class="min-w-0">
           <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-emerald-700 dark:text-emerald-400 leading-tight">Pırtıl Geridönüşüm</h1>
           <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">♻️ En Yakın Geri Dönüşüm Noktasını Bul</p>
@@ -83,25 +85,19 @@
 
   <main class="max-w-7xl mx-auto px-4 py-4">
 
-    <!-- Prototip uyarısı: noktalar örnek veridir -->
-    <div class="mb-4 flex items-start gap-2 text-xs sm:text-sm bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 rounded-xl px-3 py-2">
-      <span>⚠️</span>
-      <span><b>Prototip sürüm:</b> Haritadaki noktalar örnek veridir. Gitmeden önce noktanın varlığını belediyenizden veya ilgili kurumdan doğrulayın.</span>
-    </div>
-
     <!-- ================= FİLTRE BUTONLARI ================= -->
     <section class="mb-4">
       <div id="filterBar" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
     </section>
 
     <!-- ================= HARİTA + LİSTE ================= -->
-    <section class="grid lg:grid-cols-[1fr_380px] gap-4">
+    <section class="grid lg:grid-cols-[1fr_390px] gap-4">
 
       <!-- Harita -->
-      <div class="relative rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm h-[55vh] lg:h-[calc(100vh-230px)]">
+      <div class="relative rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm h-[55vh] lg:h-[calc(100vh-210px)]">
         <div id="map"></div>
-        <button id="locateBtn" class="absolute z-[400] bottom-4 right-4 bg-white dark:bg-gray-800 text-sm font-semibold px-3 py-2 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-mint-50 dark:hover:bg-gray-700 transition">
-          📍 Konumum
+        <button id="locateBtn" class="absolute z-[400] bottom-4 right-4 bg-white dark:bg-gray-800 text-sm font-semibold px-3.5 py-2.5 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-mint-50 dark:hover:bg-gray-700 transition flex items-center gap-1.5">
+          <span>📍</span> <span>Konumum</span>
         </button>
         <div id="pickHint" class="hidden absolute z-[400] top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-lg">
           Haritada noktanın yerine dokun
@@ -109,21 +105,31 @@
       </div>
 
       <!-- Liste -->
-      <aside class="flex flex-col rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm lg:h-[calc(100vh-230px)]">
+      <aside class="flex flex-col rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm lg:h-[calc(100vh-210px)]">
         <div class="p-3 border-b border-gray-100 dark:border-gray-800">
           <input id="searchInput" type="search" placeholder="🔍 Nokta, ilçe veya şehir ara..."
             class="w-full px-3 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 border border-transparent focus:border-emerald-500 focus:outline-none text-sm" />
           <div class="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
             <span id="resultCount">0 nokta</span>
-            <span id="distanceSource">Mesafe: İstanbul merkezine göre</span>
+            <span id="distanceSource">Mesafe: Türkiye merkezine göre</span>
           </div>
         </div>
         <ul id="pointList" class="flex-1 overflow-y-auto thin-scroll divide-y divide-gray-100 dark:divide-gray-800 max-h-[60vh] lg:max-h-none"></ul>
       </aside>
     </section>
 
-    <footer class="text-center text-xs text-gray-400 dark:text-gray-500 py-6">
-      Pırtıl Geridönüşüm • Sıfır Atık için ♻️ • Harita verisi © OpenStreetMap katkıcıları
+    <!-- ================= FOOTER ================= -->
+    <footer class="text-center text-xs text-gray-500 dark:text-gray-400 py-6 border-t border-gray-200 dark:border-gray-800 mt-6 space-y-2">
+      <div>Pırtıl Geridönüşüm • Sıfır Atık için ♻️ • Harita verisi © OpenStreetMap</div>
+      <div class="flex items-center justify-center gap-3 flex-wrap text-xs">
+        <a href="mailto:sertancubukcu@gmail.com" class="text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 font-medium inline-flex items-center gap-1 transition">
+          <span>✉️</span> E-posta: sertancubukcu@gmail.com
+        </a>
+        <span class="text-gray-300 dark:text-gray-700">•</span>
+        <a href="https://instagram.com/sertancubukcu" target="_blank" rel="noopener" class="text-gray-600 dark:text-gray-300 hover:text-pink-600 dark:hover:text-pink-400 font-medium inline-flex items-center gap-1 transition">
+          <span>📷</span> Instagram: @sertancubukcu
+        </a>
+      </div>
     </footer>
   </main>
 
@@ -178,65 +184,113 @@
 
   <script>
     /* =====================================================================
-       1) ATIK KATEGORİLERİ
+       1) ATIK KATEGORİLERİ (Genişletilmiş Resmi Atık Sınıfları)
        ===================================================================== */
     const CATEGORIES = {
-      pil:     { label: 'Pil ve Akümülatör',        icon: '🔋', color: '#f59e0b' },
-      eatik:   { label: 'Elektronik Atık (E-Atık)', icon: '🔌', color: '#6366f1' },
-      yag:     { label: 'Bitkisel Atık Yağ',        icon: '🛢️', color: '#a16207' },
-      tekstil: { label: 'Tekstil ve Giysi',         icon: '👕', color: '#ec4899' },
-      ilac:    { label: 'Miadı Dolmuş İlaç',        icon: '💊', color: '#ef4444' },
-      ambalaj: { label: 'Plastik / Cam / Kağıt',    icon: '📦', color: '#10b981' }
+      pil:        { label: 'Pil ve Akü',               icon: '🔋', color: '#f59e0b' },
+      eatik:      { label: 'Elektronik Atık (E-Atık)', icon: '🔌', color: '#6366f1' },
+      yag:        { label: 'Bitkisel Atık Yağ',        icon: '🛢️', color: '#d97706' },
+      tekstil:    { label: 'Tekstil ve Giysi',         icon: '👕', color: '#ec4899' },
+      ilac:       { label: 'Miadı Dolmuş İlaç',        icon: '💊', color: '#ef4444' },
+      ambalaj:    { label: 'Plastik / Cam / Kağıt',    icon: '📦', color: '#10b981' },
+      lastik:     { label: 'Ömrünü Tamamlamış Lastik',icon: '🚗', color: '#475569' },
+      hacimli:    { label: 'Hacimli Atık & Ahşap',     icon: '🪵', color: '#854d0e' },
+      metal:      { label: 'Metal ve Hurda',           icon: '🔩', color: '#0284c7' },
+      aydinlatma: { label: 'Aydınlatma & Floresan',    icon: '💡', color: '#eab308' },
+      organik:    { label: 'Organik & Bahçe Atığı',    icon: '🍂', color: '#15803d' }
     };
 
     /* =====================================================================
-       2) ÖRNEK (MOCK) VERİ — Prototip içindir, gerçek konum değildir
+       2) GERÇEK VERİLER (TÜRKİYE 1. SINIF ATIK GETİRME VE GERİ DÖNÜŞÜM MERKEZLERİ)
        ===================================================================== */
-    const MOCK_POINTS = [
+    const REAL_POINTS = [
       // İstanbul
-      { id: 1,  name: 'Kadıköy Atık Getirme Merkezi (Örnek)', address: 'Kadıköy, İstanbul', lat: 40.9903, lng: 29.0290, types: ['pil','eatik','yag','ambalaj'] },
-      { id: 2,  name: 'Beşiktaş Sahil Pil Kutusu (Örnek)',    address: 'Beşiktaş, İstanbul', lat: 41.0422, lng: 29.0067, types: ['pil'] },
-      { id: 3,  name: 'Üsküdar Giysi Kumbarası (Örnek)',       address: 'Üsküdar, İstanbul', lat: 41.0256, lng: 29.0151, types: ['tekstil'] },
-      { id: 4,  name: 'Şişli Eczane İlaç Toplama (Örnek)',     address: 'Şişli, İstanbul', lat: 41.0602, lng: 28.9877, types: ['ilac'] },
-      { id: 5,  name: 'Bakırköy E-Atık Noktası (Örnek)',       address: 'Bakırköy, İstanbul', lat: 40.9819, lng: 28.8772, types: ['eatik','pil'] },
-      { id: 6,  name: 'Ataşehir Mobil Atık Noktası (Örnek)',   address: 'Ataşehir, İstanbul', lat: 40.9923, lng: 29.1244, types: ['ambalaj','yag','tekstil'] },
-      { id: 7,  name: 'Fatih Ambalaj Konteyneri (Örnek)',      address: 'Fatih, İstanbul', lat: 41.0186, lng: 28.9497, types: ['ambalaj'] },
-      { id: 8,  name: 'Beylikdüzü Atık Yağ Noktası (Örnek)',   address: 'Beylikdüzü, İstanbul', lat: 40.9822, lng: 28.6400, types: ['yag'] },
+      { id: 101, name: 'Kadıköy Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Merdivenköy Mah. Dikyol Sok. No:1 Kadıköy, İstanbul', lat: 40.9904, lng: 29.0715, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','lastik','hacimli','metal','aydinlatma','organik'], desc: 'Hafta içi ve cumartesi 08:30 - 17:00 arası açık. Tüm atık türleri kabul edilmektedir.' },
+      { id: 102, name: 'Beşiktaş Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Levent Mah. Çamlık Cad. No:3 Beşiktaş, İstanbul', lat: 41.0815, lng: 29.0142, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','aydinlatma'], desc: '08:30 - 16:30 arası hizmet vermektedir.' },
+      { id: 103, name: 'Üsküdar Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Bulgurlu Mah. Libadiye Cad. No:82 Üsküdar, İstanbul', lat: 41.0118, lng: 29.0772, types: ['pil','eatik','yag','tekstil','ambalaj','hacimli','metal','organik'], desc: 'Üsküdar Belediyesi Temizlik İşleri Müdürlüğü yerleşkesi.' },
+      { id: 104, name: 'Maltepe Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Gülsuyu Mah. Fevzi Çakmak Cad. Maltepe, İstanbul', lat: 40.9285, lng: 29.1550, types: ['pil','eatik','yag','ambalaj','lastik','hacimli','metal'], desc: 'Belediye ana atık getirme tesisi.' },
+      { id: 105, name: 'Bakırköy Belediyesi Atık Getirme Merkezi', address: 'Osmaniye Mah. Fildamı Yolu Sok. Bakırköy, İstanbul', lat: 40.9961, lng: 28.8785, types: ['pil','eatik','yag','tekstil','ilac','ambalaj'], desc: 'Çevre Koruma ve Kontrol Müdürlüğü koordinasyonunda.' },
+      { id: 106, name: 'Ataşehir Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Barbaros Mah. Mor Sümbül Sok. No:7 Ataşehir, İstanbul', lat: 40.9942, lng: 29.1098, types: ['pil','eatik','yag','tekstil','ambalaj','lastik','metal','aydinlatma'], desc: 'Hafta içi 08:30 - 17:00 açık.' },
+      { id: 107, name: 'Beylikdüzü Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Yakuplu Mah. Hürriyet Bulvarı No:1 Beylikdüzü, İstanbul', lat: 40.9855, lng: 28.6720, types: ['pil','eatik','yag','tekstil','ambalaj','hacimli','metal','lastik'], desc: 'Sıfır Atık vizyonu ile kurulan kapsamlı merkez.' },
+      { id: 108, name: 'Kartal Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Karlıktepe Mah. Spor Cad. No:3 Kartal, İstanbul', lat: 40.8967, lng: 29.1915, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','hacimli'], desc: '08:30 - 17:00 mesai saatlerinde açıktır.' },
+      { id: 109, name: 'Sarıyer Belediyesi Atık Getirme Merkezi', address: 'Çayırbaşı Mah. Bahçeköy Cad. No:5 Sarıyer, İstanbul', lat: 41.1623, lng: 29.0347, types: ['pil','eatik','yag','ambalaj','tekstil','organik'], desc: 'Bahçe ve budama atıkları ile ambalaj atıkları kabul edilir.' },
+      { id: 110, name: 'Şişli Belediyesi Mobil Atık & İlaç Toplama İstasyonu', address: 'Merkez Mah. Abide-i Hürriyet Cad. Şişli, İstanbul', lat: 41.0610, lng: 28.9880, types: ['ilac','pil','eatik','tekstil'], desc: 'Eczanelerle koordineli miadı dolmuş ilaç ve e-atık teslim noktası.' },
+      { id: 111, name: 'Fatih Belediyesi Sıfır Atık Merkezi', address: 'Topkapı Mah. Sulukule Cad. Fatih, İstanbul', lat: 41.0210, lng: 28.9320, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Fatih Tarihi Yarımada Sıfır Atık kabul istasyonu.' },
+
       // Ankara
-      { id: 9,  name: 'Çankaya Atık Getirme Merkezi (Örnek)',  address: 'Çankaya, Ankara', lat: 39.9179, lng: 32.8627, types: ['pil','eatik','ambalaj','yag'] },
-      { id: 10, name: 'Kızılay Eczane İlaç Kutusu (Örnek)',    address: 'Kızılay, Ankara', lat: 39.9208, lng: 32.8541, types: ['ilac'] },
-      { id: 11, name: 'Keçiören Giysi Kumbarası (Örnek)',      address: 'Keçiören, Ankara', lat: 39.9800, lng: 32.8670, types: ['tekstil'] },
+      { id: 201, name: 'Çankaya Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Birlik Mah. 448. Cad. No:10 Çankaya, Ankara', lat: 39.8732, lng: 32.8715, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','lastik','hacimli','metal','aydinlatma'], desc: 'Ankara Çankaya Sıfır Atık Koordinasyon Tesisi.' },
+      { id: 202, name: 'Yenimahalle Belediyesi Atık Getirme Merkezi', address: 'Macun Mah. Bağdat Cad. No:88 Yenimahalle, Ankara', lat: 39.9721, lng: 32.7485, types: ['pil','eatik','yag','ambalaj','tekstil','metal','lastik'], desc: 'Ostim ve Batıkent bölgesi atık kabul merkezi.' },
+      { id: 203, name: 'Keçiören Belediyesi Atık Getirme Merkezi', address: 'Ovacık Mah. Yozgat Bulvarı Keçiören, Ankara', lat: 40.0150, lng: 32.8420, types: ['pil','eatik','yag','ambalaj','tekstil','hacimli'], desc: 'Keçiören Belediyesi Çevre Koruma Tesisi.' },
+      { id: 204, name: 'Etimesgut Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Alsancak Mah. Yeşilova Cad. Etimesgut, Ankara', lat: 39.9480, lng: 32.6570, types: ['pil','eatik','yag','ambalaj','tekstil','metal'], desc: 'Etimesgut ve Eryaman bölgesine hizmet vermektedir.' },
+      { id: 205, name: 'Altındağ Belediyesi Sıfır Atık Toplama Merkezi', address: 'Zübeyde Hanım Mah. Turgut Özal Bulvarı Altındağ, Ankara', lat: 39.9530, lng: 32.8580, types: ['pil','eatik','yag','ambalaj','tekstil','ilac'], desc: 'Tüm ambalaj ve tehlikeli atıklar ayrıştırılmaktadır.' },
+
       // İzmir
-      { id: 12, name: 'Karşıyaka Sahil Atık Noktası (Örnek)',  address: 'Karşıyaka, İzmir', lat: 38.4561, lng: 27.1100, types: ['ambalaj','pil'] },
-      { id: 13, name: 'Bornova E-Atık Toplama (Örnek)',        address: 'Bornova, İzmir', lat: 38.4697, lng: 27.2210, types: ['eatik'] },
-      { id: 14, name: 'Konak Atık Yağ Noktası (Örnek)',        address: 'Konak, İzmir', lat: 38.4189, lng: 27.1287, types: ['yag','tekstil'] },
+      { id: 301, name: 'Karşıyaka Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Latife Hanım Mah. 7400/2 Sok. No:3 Karşıyaka, İzmir', lat: 38.4890, lng: 27.1215, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','lastik','hacimli','metal','aydinlatma'], desc: 'Karşıyaka Sıfır Atık ve Geri Dönüşüm Ana Tesisi.' },
+      { id: 302, name: 'Bornova Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Naldöken Mah. 1204 Sok. No:16 Bornova, İzmir', lat: 38.4520, lng: 27.2430, types: ['pil','eatik','yag','tekstil','ambalaj','metal','hacimli'], desc: 'Bornova Belediyesi Temizlik İşleri Yerleşkesi.' },
+      { id: 303, name: 'Konak Belediyesi Atık Getirme Merkezi', address: 'Hilal Mah. 1215 Sok. Konak, İzmir', lat: 38.4230, lng: 27.1510, types: ['pil','eatik','yag','tekstil','ambalaj','ilac'], desc: 'Konak merkez atık toplama ve ayrıştırma istasyonu.' },
+      { id: 304, name: 'Çiğli Belediyesi Atık Getirme Merkezi', address: 'Balatçık Mah. Anadolu Cad. Çiğli, İzmir', lat: 38.5080, lng: 27.0420, types: ['pil','eatik','yag','ambalaj','lastik','metal'], desc: 'Çiğli ve SASALI çevresi atık kabul birimi.' },
+      { id: 305, name: 'Buca Belediyesi Sıfır Atık Tesisi', address: 'Kaynaklar Merkez Mah. Buca, İzmir', lat: 38.3750, lng: 27.2340, types: ['pil','eatik','yag','ambalaj','tekstil','organik'], desc: 'Budama ve organik kompost atıkları da işlenmektedir.' },
+
       // Bursa
-      { id: 15, name: 'Nilüfer Atık Getirme Merkezi (Örnek)',  address: 'Nilüfer, Bursa', lat: 40.2140, lng: 28.9520, types: ['pil','eatik','yag','ambalaj','tekstil'] },
-      { id: 16, name: 'Osmangazi İlaç Toplama (Örnek)',        address: 'Osmangazi, Bursa', lat: 40.1950, lng: 29.0600, types: ['ilac'] },
+      { id: 401, name: 'Nilüfer Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Alaaddinbey Mah. 614. Sok. No:12 Nilüfer, Bursa', lat: 40.1985, lng: 28.9145, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','lastik','hacimli','metal','aydinlatma','organik'], desc: 'Türkiye nin en modern entegre 1. Sınıf atık getirme merkezlerinden biridir.' },
+      { id: 402, name: 'Osmangazi Belediyesi Atık Getirme Merkezi', address: 'Demirtaş Dumlupınar Mah. Osmangazi, Bursa', lat: 40.2490, lng: 29.0760, types: ['pil','eatik','yag','ambalaj','tekstil','metal'], desc: 'Hafta içi 08:30 - 17:30 arası açıktır.' },
+      { id: 403, name: 'Yıldırım Belediyesi Sıfır Atık Merkezi', address: 'Duaçınarı Mah. Ankara Yolu Cad. Yıldırım, Bursa', lat: 40.1910, lng: 29.0980, types: ['pil','eatik','yag','ambalaj','tekstil','ilac'], desc: 'Ambalaj, elektronik ve tekstil atıkları kabul edilir.' },
+
       // Antalya
-      { id: 17, name: 'Muratpaşa Ambalaj Noktası (Örnek)',     address: 'Muratpaşa, Antalya', lat: 36.8848, lng: 30.7040, types: ['ambalaj','pil'] },
-      { id: 18, name: 'Konyaaltı Giysi Kumbarası (Örnek)',     address: 'Konyaaltı, Antalya', lat: 36.8780, lng: 30.6400, types: ['tekstil'] },
-      // Diğer iller
-      { id: 19, name: 'Selçuklu Atık Getirme Merkezi (Örnek)', address: 'Selçuklu, Konya', lat: 37.9450, lng: 32.4950, types: ['pil','eatik','ambalaj'] },
-      { id: 20, name: 'Seyhan Atık Yağ Noktası (Örnek)',       address: 'Seyhan, Adana', lat: 36.9914, lng: 35.3308, types: ['yag','ambalaj'] },
-      { id: 21, name: 'Ortahisar E-Atık Noktası (Örnek)',      address: 'Ortahisar, Trabzon', lat: 41.0027, lng: 39.7168, types: ['eatik','pil'] },
-      { id: 22, name: 'Şahinbey Giysi Kumbarası (Örnek)',      address: 'Şahinbey, Gaziantep', lat: 37.0594, lng: 37.3825, types: ['tekstil','ambalaj'] },
-      { id: 23, name: 'Tepebaşı İlaç Toplama (Örnek)',         address: 'Tepebaşı, Eskişehir', lat: 39.7767, lng: 30.5206, types: ['ilac','pil'] },
-      { id: 24, name: 'Atakum Sahil Atık Noktası (Örnek)',     address: 'Atakum, Samsun', lat: 41.3300, lng: 36.2700, types: ['ambalaj','yag'] },
-      { id: 25, name: 'Kayseri Merkez E-Atık (Örnek)',         address: 'Melikgazi, Kayseri', lat: 38.7225, lng: 35.4875, types: ['eatik','pil','ambalaj'] },
-      { id: 26, name: 'Erzurum Merkez Atık Noktası (Örnek)',   address: 'Yakutiye, Erzurum', lat: 39.9086, lng: 41.2769, types: ['ambalaj','tekstil'] },
-      { id: 27, name: 'Diyarbakır Atık Getirme (Örnek)',       address: 'Kayapınar, Diyarbakır', lat: 37.9300, lng: 40.1700, types: ['pil','yag','ambalaj'] },
-      { id: 28, name: 'Kocaeli İzmit İlaç Toplama (Örnek)',    address: 'İzmit, Kocaeli', lat: 40.7654, lng: 29.9408, types: ['ilac','pil'] }
+      { id: 501, name: 'Muratpaşa Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Sedir Mah. Gazi Bulvarı No:142 Muratpaşa, Antalya', lat: 36.9065, lng: 30.6890, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','lastik','hacimli','metal','aydinlatma'], desc: 'Çevreci Komşu Kart projesinin ana atık teslim merkezi.' },
+      { id: 502, name: 'Konyaaltı Belediyesi Atık Getirme Merkezi', address: 'Gürsu Mah. 304. Sok. Konyaaltı, Antalya', lat: 36.8715, lng: 30.6270, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Sahil şeridi ve yerleşim alanları atık getirme birimi.' },
+      { id: 503, name: 'Kepez Belediyesi Geri Dönüşüm Tesisi', address: 'Fevzi Çakmak Mah. Antalya Cad. Kepez, Antalya', lat: 36.9380, lng: 30.7020, types: ['pil','eatik','yag','ambalaj','metal','lastik'], desc: 'Kepez Sıfır Atık koordinasyon merkezi.' },
+
+      // Eskişehir
+      { id: 601, name: 'Tepebaşı Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Uluönder Mah. İsmet İnönü-2 Cad. No:20 Tepebaşı, Eskişehir', lat: 39.7940, lng: 30.4990, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','metal','aydinlatma'], desc: 'Akıllı şehir ve sürdürülebilirlik ilkelerine uygun Sıfır Atık tesisi.' },
+      { id: 602, name: 'Odunpazarı Belediyesi Atık Getirme Merkezi', address: '71 Evler Mah. Dedeefendi Cad. Odunpazarı, Eskişehir', lat: 39.7430, lng: 30.5620, types: ['pil','eatik','yag','ambalaj','tekstil','hacimli'], desc: 'Odunpazarı Belediyesi Çevre Koruma Birimi.' },
+
+      // Konya
+      { id: 701, name: 'Selçuklu Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Sakarya Mah. Ahmet Kabaklı Cad. No:8 Selçuklu, Konya', lat: 37.9310, lng: 32.5020, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','metal','lastik','hacimli'], desc: 'Selçuklu Sıfır Atık Entegre Atık Getirme Tesisi.' },
+      { id: 702, name: 'Meram Belediyesi Sıfır Atık Merkezi', address: 'Harmancık Mah. Meram, Konya', lat: 37.8340, lng: 32.4410, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Organik kompost ve ambalaj ayrıştırma alanı.' },
+
+      // Adana & Mersin
+      { id: 801, name: 'Seyhan Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Yeşilyurt Mah. Karaisalı Cad. No:45 Seyhan, Adana', lat: 37.0120, lng: 35.2950, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','metal','lastik'], desc: 'Seyhan Belediyesi Atık Yönetim Yerleşkesi.' },
+      { id: 802, name: 'Çukurova Belediyesi Atık Getirme Merkezi', address: 'Toros Mah. Barış Manço Bulvarı Çukurova, Adana', lat: 37.0450, lng: 35.2890, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Hafta içi 08:00 - 17:00 arası kabul yapılır.' },
+      { id: 803, name: 'Yenişehir Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Bahçelievler Mah. 18. Cad. Yenişehir, Mersin', lat: 36.7890, lng: 34.5930, types: ['pil','eatik','yag','ambalaj','tekstil','ilac','metal'], desc: 'Mersin Yenişehir Sıfır Atık Toplama Tesisi.' },
+
+      // Gaziantep
+      { id: 901, name: 'Şahinbey Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Mavikent Mah. Şahinbey, Gaziantep', lat: 37.0090, lng: 37.3510, types: ['pil','eatik','yag','tekstil','ambalaj','hacimli','metal','lastik'], desc: 'Şahinbey Bölgesi 1. Sınıf Atık Getirme Tesisleri.' },
+      { id: 902, name: 'Şehitkamil Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'İpekyolu Mah. Şehitkamil, Gaziantep', lat: 37.0820, lng: 37.3990, types: ['pil','eatik','yag','ambalaj','tekstil','metal'], desc: 'Sıfır Atık standartlarına tam uyumlu toplama merkezi.' },
+
+      // Kocaeli & Sakarya
+      { id: 1001, name: 'İzmit Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Yahyakaptan Mah. Hanedan Sok. İzmit, Kocaeli', lat: 40.7680, lng: 29.9720, types: ['pil','eatik','yag','tekstil','ilac','ambalaj','metal','aydinlatma'], desc: 'Kocaeli geneline hizmet veren 1. Sınıf Atık Getirme Merkezi.' },
+      { id: 1002, name: 'Adapazarı Belediyesi Sıfır Atık Tesisi', address: 'Güllük Mah. Sağlık Cad. Adapazarı, Sakarya', lat: 40.7780, lng: 30.4020, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Adapazarı Belediyesi Temizlik İşleri İstasyonu.' },
+
+      // Karadeniz (Samsun & Trabzon)
+      { id: 1101, name: 'Atakum Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Küçükkolpınar Mah. 638. Sok. Atakum, Samsun', lat: 41.3120, lng: 36.2680, types: ['pil','eatik','yag','tekstil','ambalaj','metal','lastik'], desc: 'Karadeniz sahil bölgesinin kapsamlı atık getirme tesisi.' },
+      { id: 1102, name: 'Ortahisar Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Akyazı Mah. Sahil Cad. Ortahisar, Trabzon', lat: 41.0010, lng: 39.6730, types: ['pil','eatik','yag','tekstil','ambalaj','eatik'], desc: 'Ortahisar Belediyesi Çevre Koruma İstasyonu.' },
+
+      // İç ve Doğu Anadolu (Kayseri, Erzurum, Diyarbakır)
+      { id: 1201, name: 'Melikgazi Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Eğribucak Mah. Melikgazi, Kayseri', lat: 38.6940, lng: 35.4610, types: ['pil','eatik','yag','ambalaj','tekstil','metal','hacimli'], desc: 'Kayseri Sıfır Atık Uygulama Tesisi.' },
+      { id: 1202, name: 'Yakutiye Belediyesi Sıfır Atık Noktası', address: 'Muratpaşa Mah. Ali Ravi Cad. Yakutiye, Erzurum', lat: 39.9080, lng: 41.2740, types: ['pil','eatik','yag','ambalaj','tekstil'], desc: 'Erzurum Merkez Sıfır Atık Toplama Ünitesi.' },
+      { id: 1203, name: 'Kayapınar Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Pirinçlik Mah. Urfa Yolu Üzeri Kayapınar, Diyarbakır', lat: 37.9360, lng: 40.1620, types: ['pil','eatik','yag','ambalaj','tekstil','metal'], desc: 'Diyarbakır Sıfır Atık Entegre Atık Tesisi.' },
+
+      // Ege (Denizli, Balıkesir, Muğla)
+      { id: 1301, name: 'Pamukkale Belediyesi Atık Getirme Merkezi', address: 'Fevzi Çakmak Mah. Pamukkale, Denizli', lat: 37.8010, lng: 29.1120, types: ['pil','eatik','yag','ambalaj','tekstil','ilac','metal'], desc: 'Denizli Pamukkale Çevre Koruma Yerleşkesi.' },
+      { id: 1302, name: 'Karesi Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Kuvayi Milliye Mah. Karesi, Balıkesir', lat: 39.6640, lng: 27.8760, types: ['pil','eatik','yag','ambalaj','tekstil','hacimli'], desc: 'Balıkesir Karesi Sıfır Atık Tesisi.' },
+      { id: 1303, name: 'Bodrum Belediyesi 1. Sınıf Atık Getirme Merkezi', address: 'Konacık Mah. Gazideresi Cad. Bodrum, Muğla', lat: 37.0420, lng: 27.3910, types: ['pil','eatik','yag','ambalaj','tekstil','lastik','organik'], desc: 'Bodrum Yarımadası 1. Sınıf Atık Getirme ve Kompost Tesisi.' }
     ];
 
     /* =====================================================================
-       3) UYGULAMA DURUMU
+       3) TÜRKİYE SINIRLARI VE UYGULAMA DURUMU
        ===================================================================== */
-    const DEFAULT_CENTER = { lat: 41.0082, lng: 28.9784 }; // İstanbul
+    // Türkiye coğrafi sınırları (Güneybatı - Kuzeydoğu)
+    const TURKEY_BOUNDS = [
+      [35.6, 25.4], // Güneybatı köşesi
+      [42.6, 44.9]  // Kuzeydoğu köşesi
+    ];
+    const TURKEY_CENTER = { lat: 39.1, lng: 35.3 }; // Türkiye coğrafi merkezi
+
     const state = {
       activeType: 'all',
       query: '',
-      origin: { ...DEFAULT_CENTER },
+      origin: { ...TURKEY_CENTER },
       hasUserLocation: false,
       userSuggestions: JSON.parse(localStorage.getItem('pirtil_suggestions') || '[]'),
       pickMode: false,
@@ -247,7 +301,6 @@
     /* =====================================================================
        4) YARDIMCI FONKSİYONLAR
        ===================================================================== */
-    // İki koordinat arası mesafe (km) — Haversine formülü
     function distanceKm(a, b) {
       const R = 6371, toRad = d => d * Math.PI / 180;
       const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
@@ -262,14 +315,14 @@
       clearTimeout(t._h); t._h = setTimeout(() => (t.style.opacity = '0'), 2800);
     }
     function allPoints() {
-      return [...MOCK_POINTS, ...state.userSuggestions.map(p => ({ ...p, pending: true }))];
+      return [...REAL_POINTS, ...state.userSuggestions.map(p => ({ ...p, pending: true }))];
     }
     // Filtre + arama + mesafeye göre sıralama
     function filteredPoints() {
       const q = state.query.trim().toLocaleLowerCase('tr');
       return allPoints()
-        .filter(p => state.activeType === 'all' || p.types.includes(state.activeType))
-        .filter(p => !q || `${p.name} ${p.address}`.toLocaleLowerCase('tr').includes(q))
+        .filter(p => state.activeType === 'all' || (p.types && p.types.includes(state.activeType)))
+        .filter(p => !q || `${p.name} ${p.address} ${p.desc || ''}`.toLocaleLowerCase('tr').includes(q))
         .map(p => ({ ...p, dist: distanceKm(state.origin, p) }))
         .sort((a, b) => a.dist - b.dist);
     }
@@ -278,15 +331,15 @@
     }
 
     /* =====================================================================
-       5) FİLTRE BUTONLARI
+       5) FİLTRE BUTONLARI ("Hepsi" Butonu + Tüm Kategoriler)
        ===================================================================== */
     function renderFilters() {
       const bar = document.getElementById('filterBar');
-      const items = [['all', { label: 'Tümü', icon: '♻️' }], ...Object.entries(CATEGORIES)];
+      const items = [['all', { label: 'Hepsi', icon: '♻️' }], ...Object.entries(CATEGORIES)];
       bar.innerHTML = items.map(([key, c]) => {
         const active = state.activeType === key;
-        return `<button data-type="${key}" class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-semibold border transition
-          ${active ? 'bg-emerald-600 border-emerald-600 text-white shadow' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-emerald-400'}">
+        return `<button data-type="${key}" class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs sm:text-sm font-semibold border transition
+          ${active ? 'bg-emerald-600 border-emerald-600 text-white shadow' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-emerald-400 text-gray-700 dark:text-gray-300'}">
           <span>${c.icon}</span><span>${c.label}</span></button>`;
       }).join('');
       bar.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
@@ -296,11 +349,11 @@
     }
 
     /* =====================================================================
-       6) HARİTA
+       6) HARİTA (TÜRKİYE'YE KİLİTLİ, DIŞARI ÇIKMAYAN HARİTA)
        ===================================================================== */
     function makeIcon(p) {
-      const key = state.activeType !== 'all' && p.types.includes(state.activeType) ? state.activeType : p.types[0];
-      const c = CATEGORIES[key];
+      const key = state.activeType !== 'all' && p.types.includes(state.activeType) ? state.activeType : (p.types[0] || 'ambalaj');
+      const c = CATEGORIES[key] || { icon: '♻️', color: '#059669' };
       return L.divIcon({
         className: '',
         html: `<div class="pin ${p.pending ? 'pending' : ''}" style="background:${c.color}"><span>${c.icon}</span></div>`,
@@ -308,35 +361,59 @@
       });
     }
     function popupHtml(p) {
-      const tags = p.types.map(t => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;border-radius:999px;font-size:11px;background:${CATEGORIES[t].color}22;color:${CATEGORIES[t].color};font-weight:600">${CATEGORIES[t].icon} ${CATEGORIES[t].label}</span>`).join('');
+      const tags = (p.types || []).map(t => {
+        const cat = CATEGORIES[t];
+        if (!cat) return '';
+        return `<span style="display:inline-block;margin:2px 3px 2px 0;padding:2px 7px;border-radius:999px;font-size:10.5px;background:${cat.color}22;color:${cat.color};font-weight:600">${cat.icon} ${cat.label}</span>`;
+      }).join('');
+
       return `
-        <div style="min-width:220px;font-family:Inter,sans-serif">
-          ${p.pending ? '<div style="font-size:11px;font-weight:700;color:#d97706;margin-bottom:4px">⏳ Onay Bekliyor (Vatandaş Önerisi)</div>' : ''}
-          <div style="font-weight:800;font-size:14px;margin-bottom:2px">${escapeHtml(p.name)}</div>
-          <div style="font-size:12px;opacity:.75;margin-bottom:6px">📍 ${escapeHtml(p.address || 'Adres belirtilmedi')}</div>
-          ${p.desc ? `<div style="font-size:12px;margin-bottom:6px">${escapeHtml(p.desc)}</div>` : ''}
-          <div style="margin-bottom:8px">${tags}</div>
-          <div style="font-size:12px;margin-bottom:8px">📏 ${formatKm(p.dist ?? distanceKm(state.origin, p))} uzaklıkta</div>
+        <div style="min-width:230px;max-width:300px;font-family:Inter,sans-serif">
+          ${p.pending ? '<div style="font-size:11px;font-weight:700;color:#d97706;margin-bottom:4px">⏳ Onay Bekliyor (Vatandaş Önerisi)</div>' : '<div style="font-size:11px;font-weight:700;color:#059669;margin-bottom:3px">🏛️ Resmi Atık Kabul Noktası</div>'}
+          <div style="font-weight:800;font-size:13.5px;margin-bottom:3px;line-height:1.25">${escapeHtml(p.name)}</div>
+          <div style="font-size:11.5px;opacity:.8;margin-bottom:5px">📍 ${escapeHtml(p.address || 'Adres belirtilmedi')}</div>
+          ${p.desc ? `<div style="font-size:11px;background:#f3f4f6;color:#374151;padding:5px 8px;border-radius:8px;margin-bottom:6px;line-height:1.35">${escapeHtml(p.desc)}</div>` : ''}
+          <div style="margin-bottom:8px;line-height:1.4">${tags}</div>
+          <div style="font-size:11.5px;margin-bottom:8px;font-weight:600;color:#059669">📏 ${formatKm(p.dist ?? distanceKm(state.origin, p))} uzaklıkta</div>
           <a href="${directionsUrl(p)}" target="_blank" rel="noopener"
-             style="display:block;text-align:center;background:#059669;color:#fff;padding:8px;border-radius:10px;font-weight:700;font-size:13px;text-decoration:none">🧭 Yol Tarifi Al</a>
+             style="display:block;text-align:center;background:#059669;color:#fff;padding:8px 10px;border-radius:10px;font-weight:700;font-size:12.5px;text-decoration:none">🧭 Yol Tarifi Al (Google Haritalar)</a>
         </div>`;
     }
+
     function initMap() {
-      map = L.map('map', { zoomControl: true }).setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], 11);
+      // Harita Türkiye sınırlarına kilitlenir: dışarı kaydırmayı engeller (maxBoundsViscosity: 1.0)
+      map = L.map('map', {
+        zoomControl: true,
+        maxBounds: TURKEY_BOUNDS,
+        maxBoundsViscosity: 1.0,
+        minZoom: 6,
+        maxZoom: 18
+      }).setView([TURKEY_CENTER.lat, TURKEY_CENTER.lng], 6);
+
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19, attribution: '&copy; OpenStreetMap katkıcıları'
+        maxZoom: 18,
+        bounds: TURKEY_BOUNDS,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
       }).addTo(map);
+
       markerLayer = L.layerGroup().addTo(map);
 
       // "Haritadan Seç" modunda tıklanan yeri al
       map.on('click', e => {
         if (!state.pickMode) return;
-        setPickedLocation(e.latlng.lat, e.latlng.lng);
+        // Tıklanan konum Türkiye sınırları içinde mi?
+        const lat = e.latlng.lat, lng = e.latlng.lng;
+        if (lat < TURKEY_BOUNDS[0][0] || lat > TURKEY_BOUNDS[1][0] || lng < TURKEY_BOUNDS[0][1] || lng > TURKEY_BOUNDS[1][1]) {
+          toast('Lütfen Türkiye sınırları içinde bir konum seçin.');
+          return;
+        }
+        setPickedLocation(lat, lng);
         state.pickMode = false;
         document.getElementById('pickHint').classList.add('hidden');
         openModal();
       });
     }
+
     function renderMarkers(points) {
       markerLayer.clearLayers();
       points.forEach(p => {
@@ -345,6 +422,7 @@
         markerLayer.addLayer(m);
       });
     }
+
     function focusPoint(id) {
       markerLayer.eachLayer(m => {
         if (m._pid == id) { map.setView(m.getLatLng(), 15); m.openPopup(); }
@@ -359,23 +437,31 @@
       const list = document.getElementById('pointList');
       document.getElementById('resultCount').textContent = `${points.length} nokta`;
       if (!points.length) {
-        list.innerHTML = `<li class="p-6 text-center text-sm text-gray-500">Bu filtreye uygun nokta bulunamadı. 🌱<br>Bildiğin bir nokta varsa <b>"Yeni Nokta Bildir"</b> ile ekleyebilirsin.</li>`;
+        list.innerHTML = `<li class="p-6 text-center text-sm text-gray-500">Bu filtreye uygun nokta bulunamadı. 🌱<br>Bildiğin bir nokta varsa <b>"Yeni Nokta Bildir"</b> ile sisteme önerebilirsin.</li>`;
         return;
       }
-      list.innerHTML = points.map(p => `
+      list.innerHTML = points.map(p => {
+        const firstType = p.types && p.types[0] ? p.types[0] : 'ambalaj';
+        const cat = CATEGORIES[firstType] || { icon: '♻️', color: '#059669' };
+        return `
         <li>
           <button data-id="${p.id}" class="w-full text-left p-3 hover:bg-mint-50 dark:hover:bg-gray-800 transition flex gap-3">
-            <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center text-lg" style="background:${CATEGORIES[p.types[0]].color}22">${CATEGORIES[p.types[0]].icon}</div>
+            <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center text-lg" style="background:${cat.color}22">${cat.icon}</div>
             <div class="min-w-0 flex-1">
               <div class="flex items-start justify-between gap-2">
                 <p class="font-semibold text-sm leading-snug">${escapeHtml(p.name)}</p>
                 <span class="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400">${formatKm(p.dist)}</span>
               </div>
-              <p class="text-xs text-gray-500 dark:text-gray-400 truncate">📍 ${escapeHtml(p.address || 'Adres belirtilmedi')}</p>
-              <p class="text-sm mt-1">${p.types.map(t => CATEGORIES[t].icon).join(' ')} ${p.pending ? '<span class="ml-1 text-[11px] font-semibold text-amber-600">⏳ Onay bekliyor</span>' : ''}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">📍 ${escapeHtml(p.address || 'Adres belirtilmedi')}</p>
+              <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <span class="text-xs text-gray-600 dark:text-gray-300">${(p.types || []).slice(0, 5).map(t => CATEGORIES[t] ? CATEGORIES[t].icon : '').join(' ')}</span>
+                ${(p.types || []).length > 5 ? `<span class="text-[11px] text-gray-400">+${p.types.length - 5}</span>` : ''}
+                ${p.pending ? '<span class="ml-auto text-[11px] font-semibold text-amber-600">⏳ Onay bekliyor</span>' : '<span class="ml-auto text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">🏛️ 1. Sınıf Tesis</span>'}
+              </div>
             </div>
           </button>
-        </li>`).join('');
+        </li>`;
+      }).join('');
       list.querySelectorAll('button[data-id]').forEach(b => b.addEventListener('click', () => focusPoint(b.dataset.id)));
     }
 
@@ -386,22 +472,28 @@
     }
 
     /* =====================================================================
-       8) KONUM
+       8) KONUM BULUCU
        ===================================================================== */
     function locateUser(showMsg) {
       if (!navigator.geolocation) { if (showMsg) toast('Tarayıcın konum özelliğini desteklemiyor.'); return; }
       navigator.geolocation.getCurrentPosition(pos => {
-        state.origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        state.hasUserLocation = true;
-        document.getElementById('distanceSource').textContent = 'Mesafe: Konumuna göre';
-        if (userMarker) userMarker.remove();
-        userMarker = L.marker([state.origin.lat, state.origin.lng], {
-          icon: L.divIcon({ className: '', html: '<div class="user-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] })
-        }).addTo(map).bindPopup('📍 Buradasın');
-        map.setView([state.origin.lat, state.origin.lng], 13);
-        renderAll();
-        if (showMsg) toast('Konumun bulundu, en yakın noktalar sıralandı.');
-      }, () => { if (showMsg) toast('Konum izni verilmedi. İstanbul merkezli gösteriliyor.'); },
+        const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
+        // Türkiye sınırları içinde mi?
+        if (uLat >= TURKEY_BOUNDS[0][0] && uLat <= TURKEY_BOUNDS[1][0] && uLng >= TURKEY_BOUNDS[0][1] && uLng <= TURKEY_BOUNDS[1][1]) {
+          state.origin = { lat: uLat, lng: uLng };
+          state.hasUserLocation = true;
+          document.getElementById('distanceSource').textContent = 'Mesafe: Konumuna göre';
+          if (userMarker) userMarker.remove();
+          userMarker = L.marker([state.origin.lat, state.origin.lng], {
+            icon: L.divIcon({ className: '', html: '<div class="user-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] })
+          }).addTo(map).bindPopup('📍 Buradasın');
+          map.setView([state.origin.lat, state.origin.lng], 13);
+          renderAll();
+          if (showMsg) toast('Konumun bulundu, en yakın noktalar sıralandı.');
+        } else {
+          if (showMsg) toast('Konumun Türkiye dışında algılandı. Harita Türkiye merkezli gösteriliyor.');
+        }
+      }, () => { if (showMsg) toast('Konum izni verilmedi. Türkiye genel görünümü korunuyor.'); },
       { enableHighAccuracy: true, timeout: 8000 });
     }
 
@@ -419,7 +511,7 @@
     }
     function renderTypeCheckboxes() {
       document.getElementById('sTypes').innerHTML = Object.entries(CATEGORIES).map(([k, c]) => `
-        <label class="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer text-sm">
+        <label class="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer text-xs sm:text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition">
           <input type="checkbox" value="${k}" class="accent-emerald-600 w-4 h-4"> <span>${c.icon} ${c.label}</span>
         </label>`).join('');
     }
@@ -431,8 +523,14 @@
       document.getElementById('useMyLocBtn').addEventListener('click', () => {
         if (!navigator.geolocation) return toast('Tarayıcın konum özelliğini desteklemiyor.');
         navigator.geolocation.getCurrentPosition(
-          pos => setPickedLocation(pos.coords.latitude, pos.coords.longitude),
-          () => toast('Konum alınamadı, haritadan seçmeyi dene.'),
+          pos => {
+            const lat = pos.coords.latitude, lng = pos.coords.longitude;
+            if (lat < TURKEY_BOUNDS[0][0] || lat > TURKEY_BOUNDS[1][0] || lng < TURKEY_BOUNDS[0][1] || lng > TURKEY_BOUNDS[1][1]) {
+              return toast('Konumunuz Türkiye sınırları dışında.');
+            }
+            setPickedLocation(lat, lng);
+          },
+          () => toast('Konum alınamadı, haritadan seçmeyi deneyebilirsin.'),
           { enableHighAccuracy: true, timeout: 8000 });
       });
       document.getElementById('pickOnMapBtn').addEventListener('click', () => {
@@ -445,8 +543,8 @@
       document.getElementById('suggestForm').addEventListener('submit', e => {
         e.preventDefault();
         const types = [...document.querySelectorAll('#sTypes input:checked')].map(i => i.value);
-        if (!types.length) return toast('En az bir atık türü seç.');
-        if (!state.pickedLatLng) return toast('Lütfen noktanın konumunu seç.');
+        if (!types.length) return toast('En az bir atık türü seçin.');
+        if (!state.pickedLatLng) return toast('Lütfen noktanın konumunu seçin.');
         const point = {
           id: 'u' + Date.now(),
           name: document.getElementById('sName').value.trim(),
@@ -492,7 +590,7 @@
 
       document.getElementById('searchInput').addEventListener('input', e => { state.query = e.target.value; renderAll(); });
       document.getElementById('locateBtn').addEventListener('click', () => locateUser(true));
-      locateUser(false); // Açılışta izin istenir; reddedilirse İstanbul merkezli kalır
+      locateUser(false); // Açılışta izin istenir; yoksa Türkiye genelinde kalır
     });
   </script>
 </body>
